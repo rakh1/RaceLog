@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RaceLog - Register</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1 class="logo">RaceLog</h1>
+                <p class="text-muted">Create a new account</p>
+            </div>
+
+            <div class="auth-error" id="error-message" style="display: none;"></div>
+            <div class="auth-success" id="success-message" style="display: none;"></div>
+
+            <form id="register-form" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" class="form-control" id="username" name="username" required placeholder="Choose a username" minlength="3" autocomplete="username">
+                    <small class="form-hint">At least 3 characters</small>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" required placeholder="Choose a password" minlength="6" autocomplete="new-password">
+                    <small class="form-hint">At least 6 characters</small>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required placeholder="Confirm your password" autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" id="register-btn">Create Account</button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Already have an account? <a href="/login.html">Sign In</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check if already logged in
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/check');
+                const data = await response.json();
+                if (data.authenticated) {
+                    window.location.href = '/';
+                }
+            } catch (error) {
+                console.error('Error checking auth:', error);
+            }
+        }
+
+        async function handleRegister(event) {
+            event.preventDefault();
+
+            const errorEl = document.getElementById('error-message');
+            const successEl = document.getElementById('success-message');
+            const submitBtn = document.getElementById('register-btn');
+            const form = event.target;
+
+            errorEl.style.display = 'none';
+            successEl.style.display = 'none';
+
+            // Client-side validation
+            if (form.password.value !== form.confirmPassword.value) {
+                errorEl.textContent = 'Passwords do not match';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating account...';
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: form.username.value,
+                        password: form.password.value
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Registration failed');
+                }
+
+                successEl.textContent = 'Account created successfully! Redirecting to login...';
+                successEl.style.display = 'block';
+                form.reset();
+
+                setTimeout(() => {
+                    window.location.href = '/login.html';
+                }, 1500);
+            } catch (error) {
+                errorEl.textContent = error.message;
+                errorEl.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Account';
+            }
+        }
+
+        checkAuth();
+    </script>
+</body>
+</html>

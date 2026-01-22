@@ -1,0 +1,557 @@
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const bcrypt = require('bcryptjs');
+const session = require('express-session');
+const FileStore = require('session-file-store')(session);
+
+const app = express();
+const PORT = 3000;
+
+// Detect if running as packaged executable
+const isPackaged = typeof process.pkg !== 'undefined';
+const basePath = isPackaged ? path.dirname(process.execPath) : __dirname;
+const publicPath = isPackaged ? path.join(__dirname, 'public') : path.join(__dirname, 'public');
+
+// Data directory (always next to the executable or script, writable location)
+const DATA_DIR = path.join(basePath, 'data');
+const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
+
+// Ensure data directories exist
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR);
+}
+if (!fs.existsSync(SESSIONS_DIR)) {
+    fs.mkdirSync(SESSIONS_DIR);
+}
+
+// Middleware
+app.use(express.json());
+
+// Session middleware
+app.use(session({
+    store: new FileStore({
+        path: SESSIONS_DIR,
+        ttl: 86400 * 7 // 7 days
+    }),
+    secret: 'racelog-secret-key-change-in-production',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false, // Set to true in production with HTTPS
+        httpOnly: true,
+        maxAge: 86400 * 7 * 1000 // 7 days
+    }
+}));
+
+app.use(express.static(publicPath));
+
+// Helper functions for JSON file operations
+function readJsonFile(filename) {
+    const filepath = path.join(DATA_DIR, filename);
+    if (!fs.existsSync(filepath)) {
+        fs.writeFileSync(filepath, '[]');
+        return [];
+    }
+    const data = fs.readFileSync(filepath, 'utf8');
+    return JSON.parse(data);
+}
+
+function writeJsonFile(filename, data) {
+    const filepath = path.join(DATA_DIR, filename);
+    fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
+}
+
+// Auth middleware
+function requireAuth(req, res, next) {
+    if (req.session && req.session.userId) {
+        next();
+    } else {
+        res.status(401).json({ error: 'Unauthorized' });
+    }
+}
+
+// ============ AUTH API ============
+
+// POST register
+app.post('/api/auth/register', async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
+    }
+
+    if (username.length < 3) {
+        return res.status(400).json({ error: 'Username must be at least 3 characters' });
+    }
+
+    if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const users = readJsonFile('users.json');
+    const existingUser = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+
+    if (existingUser) {
+        return res.status(400).json({ error: 'Username already exists' });
+    }
+
+    try {
+        const passwordHash = await bcrypt.hash(password, 10);
+        const newUser = {
+            id: uuidv4(),
+            username: username,
+            passwordHash: passwordHash,
+            createdAt: new Date().toISOString()
+        };
+
+        users.push(newUser);
+        writeJsonFile('users.json', users);
+
+        res.status(201).json({ message: 'User registered successfully' });
+    } catch (error) {
+        console.error('Error registering user:', error);
+        res.status(500).json({ error: 'Error registering user' });
+    }
+});
+
+// POST login
+app.post('/api/auth/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
+    }
+
+    const users = readJsonFile('users.json');
+    const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+
+    if (!user) {
+        return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    try {
+        const passwordMatch = await bcrypt.compare(password, user.passwordHash);
+
+        if (!passwordMatch) {
+            return res.status(401).json({ error: 'Invalid username or password' });
+        }
+
+        req.session.userId = user.id;
+        req.session.username = user.username;
+
+        res.json({ message: 'Login successful', username: user.username });
+    } catch (error) {
+        console.error('Error logging in:', error);
+        res.status(500).json({ error: 'Error logging in' });
+    }
+});
+
+// POST logout
+app.post('/api/auth/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('Error logging out:', err);
+            return res.status(500).json({ error: 'Error logging out' });
+        }
+        res.json({ message: 'Logged out successfully' });
+    });
+});
+
+// GET auth check
+app.get('/api/auth/check', (req, res) => {
+    if (req.session && req.session.userId) {
+        res.json({ authenticated: true, username: req.session.username });
+    } else {
+        res.json({ authenticated: false });
+    }
+});
+
+// ============ CARS API ============
+
+// GET all cars (user's cars only)
+app.get('/api/cars', requireAuth, (req, res) => {
+    const cars = readJsonFile('cars.json');
+    const userCars = cars.filter(c => c.userId === req.session.userId);
+    res.json(userCars);
+});
+
+// GET single car (user's car only)
+app.get('/api/cars/:id', requireAuth, (req, res) => {
+    const cars = readJsonFile('cars.json');
+    const car = cars.find(c => c.id === req.params.id && c.userId === req.session.userId);
+    if (!car) {
+        return res.status(404).json({ error: 'Car not found' });
+    }
+    res.json(car);
+});
+
+// POST create car
+app.post('/api/cars', requireAuth, (req, res) => {
+    const cars = readJsonFile('cars.json');
+    const newCar = {
+        id: uuidv4(),
+        userId: req.session.userId,
+        name: req.body.name || '',
+        series: req.body.series || ''
+    };
+    cars.push(newCar);
+    writeJsonFile('cars.json', cars);
+    res.status(201).json(newCar);
+});
+
+// PUT update car (user's car only)
+app.put('/api/cars/:id', requireAuth, (req, res) => {
+    const cars = readJsonFile('cars.json');
+    const index = cars.findIndex(c => c.id === req.params.id && c.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Car not found' });
+    }
+    cars[index] = {
+        ...cars[index],
+        name: req.body.name ?? cars[index].name,
+        series: req.body.series ?? cars[index].series
+    };
+    writeJsonFile('cars.json', cars);
+    res.json(cars[index]);
+});
+
+// DELETE car (user's car only)
+app.delete('/api/cars/:id', requireAuth, (req, res) => {
+    let cars = readJsonFile('cars.json');
+    const index = cars.findIndex(c => c.id === req.params.id && c.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Car not found' });
+    }
+    cars.splice(index, 1);
+    writeJsonFile('cars.json', cars);
+
+    // Also delete related setups and track notes (only user's)
+    let setups = readJsonFile('setups.json');
+    setups = setups.filter(s => !(s.carId === req.params.id && s.userId === req.session.userId));
+    writeJsonFile('setups.json', setups);
+
+    let trackNotes = readJsonFile('track-notes.json');
+    trackNotes = trackNotes.filter(tn => !(tn.carId === req.params.id && tn.userId === req.session.userId));
+    writeJsonFile('track-notes.json', trackNotes);
+
+    res.status(204).send();
+});
+
+// ============ SETUPS API ============
+
+// GET all setups (user's setups only, with optional carId filter)
+app.get('/api/setups', requireAuth, (req, res) => {
+    let setups = readJsonFile('setups.json');
+    setups = setups.filter(s => s.userId === req.session.userId);
+    if (req.query.carId) {
+        setups = setups.filter(s => s.carId === req.query.carId);
+    }
+    if (req.query.trackId) {
+        setups = setups.filter(s => s.trackId === req.query.trackId);
+    }
+    res.json(setups);
+});
+
+// GET single setup (user's setup only)
+app.get('/api/setups/:id', requireAuth, (req, res) => {
+    const setups = readJsonFile('setups.json');
+    const setup = setups.find(s => s.id === req.params.id && s.userId === req.session.userId);
+    if (!setup) {
+        return res.status(404).json({ error: 'Setup not found' });
+    }
+    res.json(setup);
+});
+
+// POST create setup
+app.post('/api/setups', requireAuth, (req, res) => {
+    const setups = readJsonFile('setups.json');
+    const newSetup = {
+        id: uuidv4(),
+        userId: req.session.userId,
+        carId: req.body.carId || null,
+        trackId: req.body.trackId || null,
+        name: req.body.name || '',
+        date: req.body.date || new Date().toISOString().split('T')[0],
+        toeFront: req.body.toeFront || '',
+        toeRear: req.body.toeRear || '',
+        camberFront: req.body.camberFront || '',
+        camberRear: req.body.camberRear || '',
+        casterFront: req.body.casterFront || '',
+        cornerWeights: req.body.cornerWeights || { fl: 0, fr: 0, rl: 0, rr: 0 },
+        totalWeight: req.body.totalWeight || 0,
+        rideHeightFront: req.body.rideHeightFront || '',
+        rideHeightRear: req.body.rideHeightRear || '',
+        antiRollBarFront: req.body.antiRollBarFront || '',
+        antiRollBarRear: req.body.antiRollBarRear || '',
+        tyrePressures: req.body.tyrePressures || { fl: 0, fr: 0, rl: 0, rr: 0 },
+        fuelQuantity: req.body.fuelQuantity || '',
+        tyreMake: req.body.tyreMake || '',
+        notes: req.body.notes || ''
+    };
+    setups.push(newSetup);
+    writeJsonFile('setups.json', setups);
+    res.status(201).json(newSetup);
+});
+
+// PUT update setup (user's setup only)
+app.put('/api/setups/:id', requireAuth, (req, res) => {
+    const setups = readJsonFile('setups.json');
+    const index = setups.findIndex(s => s.id === req.params.id && s.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Setup not found' });
+    }
+    setups[index] = {
+        ...setups[index],
+        ...req.body,
+        id: setups[index].id,
+        userId: setups[index].userId // Preserve ID and userId
+    };
+    writeJsonFile('setups.json', setups);
+    res.json(setups[index]);
+});
+
+// DELETE setup (user's setup only)
+app.delete('/api/setups/:id', requireAuth, (req, res) => {
+    let setups = readJsonFile('setups.json');
+    const index = setups.findIndex(s => s.id === req.params.id && s.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Setup not found' });
+    }
+    setups.splice(index, 1);
+    writeJsonFile('setups.json', setups);
+    res.status(204).send();
+});
+
+// ============ TRACKS API ============
+
+// GET all tracks (user's tracks only)
+app.get('/api/tracks', requireAuth, (req, res) => {
+    const tracks = readJsonFile('tracks.json');
+    const userTracks = tracks.filter(t => t.userId === req.session.userId);
+    res.json(userTracks);
+});
+
+// GET single track (user's track only)
+app.get('/api/tracks/:id', requireAuth, (req, res) => {
+    const tracks = readJsonFile('tracks.json');
+    const track = tracks.find(t => t.id === req.params.id && t.userId === req.session.userId);
+    if (!track) {
+        return res.status(404).json({ error: 'Track not found' });
+    }
+    res.json(track);
+});
+
+// POST create track
+app.post('/api/tracks', requireAuth, (req, res) => {
+    const tracks = readJsonFile('tracks.json');
+    const newTrack = {
+        id: uuidv4(),
+        userId: req.session.userId,
+        name: req.body.name || '',
+        location: req.body.location || '',
+        length: req.body.length || '',
+        imageUrl: req.body.imageUrl || '',
+        corners: req.body.corners || []
+    };
+    tracks.push(newTrack);
+    writeJsonFile('tracks.json', tracks);
+    res.status(201).json(newTrack);
+});
+
+// PUT update track (user's track only)
+app.put('/api/tracks/:id', requireAuth, (req, res) => {
+    const tracks = readJsonFile('tracks.json');
+    const index = tracks.findIndex(t => t.id === req.params.id && t.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Track not found' });
+    }
+    tracks[index] = {
+        ...tracks[index],
+        name: req.body.name ?? tracks[index].name,
+        location: req.body.location ?? tracks[index].location,
+        length: req.body.length ?? tracks[index].length,
+        imageUrl: req.body.imageUrl ?? tracks[index].imageUrl,
+        corners: req.body.corners ?? tracks[index].corners ?? []
+    };
+    writeJsonFile('tracks.json', tracks);
+    res.json(tracks[index]);
+});
+
+// DELETE track (user's track only)
+app.delete('/api/tracks/:id', requireAuth, (req, res) => {
+    let tracks = readJsonFile('tracks.json');
+    const index = tracks.findIndex(t => t.id === req.params.id && t.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Track not found' });
+    }
+    tracks.splice(index, 1);
+    writeJsonFile('tracks.json', tracks);
+
+    // Also delete related track notes and clear track from setups (only user's)
+    let trackNotes = readJsonFile('track-notes.json');
+    trackNotes = trackNotes.filter(tn => !(tn.trackId === req.params.id && tn.userId === req.session.userId));
+    writeJsonFile('track-notes.json', trackNotes);
+
+    let setups = readJsonFile('setups.json');
+    setups = setups.map(s => {
+        if (s.trackId === req.params.id && s.userId === req.session.userId) {
+            return { ...s, trackId: null };
+        }
+        return s;
+    });
+    writeJsonFile('setups.json', setups);
+
+    res.status(204).send();
+});
+
+// ============ TRACK NOTES API ============
+
+// GET all track notes (user's notes only, with optional filters)
+app.get('/api/track-notes', requireAuth, (req, res) => {
+    let trackNotes = readJsonFile('track-notes.json');
+    trackNotes = trackNotes.filter(tn => tn.userId === req.session.userId);
+    if (req.query.carId) {
+        trackNotes = trackNotes.filter(tn => tn.carId === req.query.carId);
+    }
+    if (req.query.trackId) {
+        trackNotes = trackNotes.filter(tn => tn.trackId === req.query.trackId);
+    }
+    res.json(trackNotes);
+});
+
+// GET single track note (user's note only)
+app.get('/api/track-notes/:id', requireAuth, (req, res) => {
+    const trackNotes = readJsonFile('track-notes.json');
+    const note = trackNotes.find(tn => tn.id === req.params.id && tn.userId === req.session.userId);
+    if (!note) {
+        return res.status(404).json({ error: 'Track note not found' });
+    }
+    res.json(note);
+});
+
+// POST create track note
+app.post('/api/track-notes', requireAuth, (req, res) => {
+    const trackNotes = readJsonFile('track-notes.json');
+    const newNote = {
+        id: uuidv4(),
+        userId: req.session.userId,
+        carId: req.body.carId || null,
+        trackId: req.body.trackId || null,
+        notes: req.body.notes || ''
+    };
+    trackNotes.push(newNote);
+    writeJsonFile('track-notes.json', trackNotes);
+    res.status(201).json(newNote);
+});
+
+// PUT update track note (user's note only)
+app.put('/api/track-notes/:id', requireAuth, (req, res) => {
+    const trackNotes = readJsonFile('track-notes.json');
+    const index = trackNotes.findIndex(tn => tn.id === req.params.id && tn.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Track note not found' });
+    }
+    trackNotes[index] = {
+        ...trackNotes[index],
+        carId: req.body.carId ?? trackNotes[index].carId,
+        trackId: req.body.trackId ?? trackNotes[index].trackId,
+        notes: req.body.notes ?? trackNotes[index].notes
+    };
+    writeJsonFile('track-notes.json', trackNotes);
+    res.json(trackNotes[index]);
+});
+
+// DELETE track note (user's note only)
+app.delete('/api/track-notes/:id', requireAuth, (req, res) => {
+    let trackNotes = readJsonFile('track-notes.json');
+    const index = trackNotes.findIndex(tn => tn.id === req.params.id && tn.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Track note not found' });
+    }
+    trackNotes.splice(index, 1);
+    writeJsonFile('track-notes.json', trackNotes);
+    res.status(204).send();
+});
+
+// ============ CORNER NOTES API ============
+
+// GET corner notes for a track
+app.get('/api/corner-notes', requireAuth, (req, res) => {
+    let cornerNotes = readJsonFile('corner-notes.json');
+    cornerNotes = cornerNotes.filter(cn => cn.userId === req.session.userId);
+    if (req.query.trackId) {
+        cornerNotes = cornerNotes.filter(cn => cn.trackId === req.query.trackId);
+    }
+    if (req.query.carId) {
+        cornerNotes = cornerNotes.filter(cn => cn.carId === req.query.carId);
+    }
+    res.json(cornerNotes);
+});
+
+// GET single corner note
+app.get('/api/corner-notes/:id', requireAuth, (req, res) => {
+    const cornerNotes = readJsonFile('corner-notes.json');
+    const note = cornerNotes.find(cn => cn.id === req.params.id && cn.userId === req.session.userId);
+    if (!note) {
+        return res.status(404).json({ error: 'Corner note not found' });
+    }
+    res.json(note);
+});
+
+// POST create or update corner note (upsert by trackId + carId + cornerName)
+app.post('/api/corner-notes', requireAuth, (req, res) => {
+    const cornerNotes = readJsonFile('corner-notes.json');
+    const { trackId, carId, cornerName, field, value } = req.body;
+
+    if (!trackId || !carId || !cornerName) {
+        return res.status(400).json({ error: 'trackId, carId and cornerName are required' });
+    }
+
+    // Check if note already exists for this corner + car combination
+    const existingIndex = cornerNotes.findIndex(
+        cn => cn.trackId === trackId && cn.carId === carId && cn.cornerName === cornerName && cn.userId === req.session.userId
+    );
+
+    if (existingIndex !== -1) {
+        // Update existing - update specific field if provided
+        if (field && ['entry', 'apex', 'exit'].includes(field)) {
+            cornerNotes[existingIndex][field] = value || '';
+        }
+        writeJsonFile('corner-notes.json', cornerNotes);
+        res.json(cornerNotes[existingIndex]);
+    } else {
+        // Create new
+        const newNote = {
+            id: uuidv4(),
+            userId: req.session.userId,
+            trackId: trackId,
+            carId: carId,
+            cornerName: cornerName,
+            entry: field === 'entry' ? (value || '') : '',
+            apex: field === 'apex' ? (value || '') : '',
+            exit: field === 'exit' ? (value || '') : ''
+        };
+        cornerNotes.push(newNote);
+        writeJsonFile('corner-notes.json', cornerNotes);
+        res.status(201).json(newNote);
+    }
+});
+
+// DELETE corner note
+app.delete('/api/corner-notes/:id', requireAuth, (req, res) => {
+    let cornerNotes = readJsonFile('corner-notes.json');
+    const index = cornerNotes.findIndex(cn => cn.id === req.params.id && cn.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Corner note not found' });
+    }
+    cornerNotes.splice(index, 1);
+    writeJsonFile('corner-notes.json', cornerNotes);
+    res.status(204).send();
+});
+
+// Start server
+app.listen(PORT, () => {
+    console.log(`RaceLog server running at http://localhost:${PORT}`);
+});

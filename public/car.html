@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RaceLog - Car Details</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">RaceLog</a>
+            <div class="nav-links">
+                <a href="/">Cars</a>
+                <a href="/tracks.html">Tracks</a>
+            </div>
+            <div class="user-info">
+                <span class="username">Logged in as <strong id="current-username"></strong></span>
+                <button class="btn-logout" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="/">Cars</a>
+            <span>/</span>
+            <span id="car-name-breadcrumb">Loading...</span>
+        </div>
+
+        <div class="page-header">
+            <div>
+                <h1 id="car-name-title">Loading...</h1>
+                <p class="text-muted" id="car-series"></p>
+            </div>
+            <button class="btn btn-primary" onclick="showAddSetupModal()">Add Setup</button>
+        </div>
+
+        <div class="list" id="setups-list">
+            <p class="text-center text-muted">Loading...</p>
+        </div>
+    </div>
+
+    <!-- Add/Edit Setup Modal -->
+    <div class="modal" id="setup-modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 id="setup-modal-title">Add Setup</h2>
+                <button class="modal-close" onclick="closeModal('setup-modal')">&times;</button>
+            </div>
+            <form id="setup-form" onsubmit="saveSetup(event)">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="setupName">Setup Name</label>
+                            <input type="text" class="form-control" id="setupName" name="setupName" required placeholder="e.g., Baseline Setup">
+                        </div>
+                        <div class="form-group">
+                            <label for="setupDate">Date</label>
+                            <input type="date" class="form-control" id="setupDate" name="setupDate" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="setupTrack">Track (optional)</label>
+                        <select class="form-control" id="setupTrack" name="setupTrack">
+                            <option value="">No track selected</option>
+                        </select>
+                    </div>
+
+                    <h3 class="section-title">Alignment</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="toeFront">Toe Front</label>
+                            <input type="text" class="form-control" id="toeFront" name="toeFront" placeholder="e.g., -0.5mm">
+                        </div>
+                        <div class="form-group">
+                            <label for="toeRear">Toe Rear</label>
+                            <input type="text" class="form-control" id="toeRear" name="toeRear" placeholder="e.g., +1.0mm">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="camberFront">Camber Front</label>
+                            <input type="text" class="form-control" id="camberFront" name="camberFront" placeholder="e.g., -3.5deg">
+                        </div>
+                        <div class="form-group">
+                            <label for="camberRear">Camber Rear</label>
+                            <input type="text" class="form-control" id="camberRear" name="camberRear" placeholder="e.g., -2.0deg">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="casterFront">Caster Front</label>
+                        <input type="text" class="form-control" id="casterFront" name="casterFront" placeholder="e.g., 7.5deg">
+                    </div>
+
+                    <h3 class="section-title">Corner Weights</h3>
+                    <div class="grid-2x2 mb-3">
+                        <div class="form-group">
+                            <label for="cwFL">Front Left</label>
+                            <input type="number" step="0.1" class="form-control" id="cwFL" name="cwFL" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="cwFR">Front Right</label>
+                            <input type="number" step="0.1" class="form-control" id="cwFR" name="cwFR" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="cwRL">Rear Left</label>
+                            <input type="number" step="0.1" class="form-control" id="cwRL" name="cwRL" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="cwRR">Rear Right</label>
+                            <input type="number" step="0.1" class="form-control" id="cwRR" name="cwRR" placeholder="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="totalWeight">Total Weight</label>
+                        <input type="number" step="0.1" class="form-control" id="totalWeight" name="totalWeight" placeholder="0" style="max-width: 200px;">
+                    </div>
+
+                    <h3 class="section-title">Suspension</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="rideHeightFront">Ride Height Front</label>
+                            <input type="text" class="form-control" id="rideHeightFront" name="rideHeightFront" placeholder="e.g., 50mm">
+                        </div>
+                        <div class="form-group">
+                            <label for="rideHeightRear">Ride Height Rear</label>
+                            <input type="text" class="form-control" id="rideHeightRear" name="rideHeightRear" placeholder="e.g., 55mm">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="antiRollBarFront">Anti-Roll Bar Front</label>
+                            <input type="text" class="form-control" id="antiRollBarFront" name="antiRollBarFront" placeholder="e.g., Medium">
+                        </div>
+                        <div class="form-group">
+                            <label for="antiRollBarRear">Anti-Roll Bar Rear</label>
+                            <input type="text" class="form-control" id="antiRollBarRear" name="antiRollBarRear" placeholder="e.g., Soft">
+                        </div>
+                    </div>
+
+                    <h3 class="section-title">Tyre Pressures</h3>
+                    <div class="grid-2x2 mb-3">
+                        <div class="form-group">
+                            <label for="tpFL">Front Left</label>
+                            <input type="number" step="0.1" class="form-control" id="tpFL" name="tpFL" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="tpFR">Front Right</label>
+                            <input type="number" step="0.1" class="form-control" id="tpFR" name="tpFR" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="tpRL">Rear Left</label>
+                            <input type="number" step="0.1" class="form-control" id="tpRL" name="tpRL" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="tpRR">Rear Right</label>
+                            <input type="number" step="0.1" class="form-control" id="tpRR" name="tpRR" placeholder="0">
+                        </div>
+                    </div>
+
+                    <h3 class="section-title">Other</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="tyreMake">Tyre Make</label>
+                            <input type="text" class="form-control" id="tyreMake" name="tyreMake" placeholder="e.g., Michelin Pilot Sport">
+                        </div>
+                        <div class="form-group">
+                            <label for="fuelQuantity">Fuel Quantity</label>
+                            <input type="text" class="form-control" id="fuelQuantity" name="fuelQuantity" placeholder="e.g., 60L">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="setupNotes">Notes</label>
+                        <textarea class="form-control" id="setupNotes" name="setupNotes" placeholder="Any additional notes about this setup..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('setup-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Setup</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Setup Modal -->
+    <div class="modal" id="setup-view-modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 id="setup-view-title">Setup Details</h2>
+                <button class="modal-close" onclick="closeModal('setup-view-modal')">&times;</button>
+            </div>
+            <div class="modal-body" id="setup-view-content">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('setup-view-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

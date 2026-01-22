@@ -1,0 +1,30 @@
+{
+  "name": "racelog",
+  "version": "1.0.0",
+  "description": "Race Car Setup Tracker",
+  "main": "server.js",
+  "bin": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "pkg . --output dist/RaceLog.exe"
+  },
+  "pkg": {
+    "assets": [
+      "public/**/*"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.18.2",
+    "express-session": "^1.18.2",
+    "session-file-store": "^1.5.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  }
+}
