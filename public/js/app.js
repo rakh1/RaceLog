@@ -156,7 +156,7 @@ async function loadCars() {
             <div class="list-item">
                 <div class="list-item-content">
                     <h3>${escapeHtml(car.name)}</h3>
-                    <p>${escapeHtml(car.series || 'No series specified')}</p>
+                    <p>${escapeHtml(car.manufacturer || '')}${car.manufacturer && car.series ? ' - ' : ''}${escapeHtml(car.series || '')}${!car.manufacturer && !car.series ? 'No details specified' : ''}</p>
                 </div>
                 <div class="list-item-actions">
                     <a href="car.html?id=${car.id}" class="btn btn-primary btn-sm">View</a>
@@ -178,6 +178,7 @@ async function saveCar(event) {
 
     const carData = {
         name: form.carName.value,
+        manufacturer: form.carManufacturer.value,
         series: form.carSeries.value
     };
 
@@ -202,6 +203,7 @@ async function editCar(id) {
         const car = await api.get(`/api/cars/${id}`);
         const form = document.getElementById('car-form');
         form.carName.value = car.name;
+        form.carManufacturer.value = car.manufacturer || '';
         form.carSeries.value = car.series;
         form.dataset.carId = id;
         document.getElementById('car-modal-title').textContent = 'Edit Car';
@@ -247,7 +249,8 @@ async function loadCarDetails() {
         const car = await api.get(`/api/cars/${carId}`);
         document.getElementById('car-name-breadcrumb').textContent = car.name;
         document.getElementById('car-name-title').textContent = car.name;
-        document.getElementById('car-series').textContent = car.series || 'No series';
+        const details = [car.manufacturer, car.series].filter(Boolean).join(' - ') || 'No details';
+        document.getElementById('car-series').textContent = details;
 
         // Load setups for this car
         loadSetups(carId);

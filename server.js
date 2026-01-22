@@ -194,6 +194,7 @@ app.post('/api/cars', requireAuth, (req, res) => {
         id: uuidv4(),
         userId: req.session.userId,
         name: req.body.name || '',
+        manufacturer: req.body.manufacturer || '',
         series: req.body.series || ''
     };
     cars.push(newCar);
@@ -211,6 +212,7 @@ app.put('/api/cars/:id', requireAuth, (req, res) => {
     cars[index] = {
         ...cars[index],
         name: req.body.name ?? cars[index].name,
+        manufacturer: req.body.manufacturer ?? cars[index].manufacturer,
         series: req.body.series ?? cars[index].series
     };
     writeJsonFile('cars.json', cars);
