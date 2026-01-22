@@ -483,15 +483,12 @@ app.delete('/api/track-notes/:id', requireAuth, (req, res) => {
 
 // ============ CORNER NOTES API ============
 
-// GET corner notes for a track
+// GET corner notes for a session
 app.get('/api/corner-notes', requireAuth, (req, res) => {
     let cornerNotes = readJsonFile('corner-notes.json');
     cornerNotes = cornerNotes.filter(cn => cn.userId === req.session.userId);
-    if (req.query.trackId) {
-        cornerNotes = cornerNotes.filter(cn => cn.trackId === req.query.trackId);
-    }
-    if (req.query.carId) {
-        cornerNotes = cornerNotes.filter(cn => cn.carId === req.query.carId);
+    if (req.query.sessionId) {
+        cornerNotes = cornerNotes.filter(cn => cn.sessionId === req.query.sessionId);
     }
     res.json(cornerNotes);
 });
@@ -506,18 +503,18 @@ app.get('/api/corner-notes/:id', requireAuth, (req, res) => {
     res.json(note);
 });
 
-// POST create or update corner note (upsert by trackId + carId + cornerName)
+// POST create or update corner note (upsert by sessionId + cornerName)
 app.post('/api/corner-notes', requireAuth, (req, res) => {
     const cornerNotes = readJsonFile('corner-notes.json');
-    const { trackId, carId, cornerName, field, value } = req.body;
+    const { sessionId, cornerName, field, value } = req.body;
 
-    if (!trackId || !carId || !cornerName) {
-        return res.status(400).json({ error: 'trackId, carId and cornerName are required' });
+    if (!sessionId || !cornerName) {
+        return res.status(400).json({ error: 'sessionId and cornerName are required' });
     }
 
-    // Check if note already exists for this corner + car combination
+    // Check if note already exists for this session + corner combination
     const existingIndex = cornerNotes.findIndex(
-        cn => cn.trackId === trackId && cn.carId === carId && cn.cornerName === cornerName && cn.userId === req.session.userId
+        cn => cn.sessionId === sessionId && cn.cornerName === cornerName && cn.userId === req.session.userId
     );
 
     if (existingIndex !== -1) {
@@ -532,8 +529,7 @@ app.post('/api/corner-notes', requireAuth, (req, res) => {
         const newNote = {
             id: uuidv4(),
             userId: req.session.userId,
-            trackId: trackId,
-            carId: carId,
+            sessionId: sessionId,
             cornerName: cornerName,
             entry: field === 'entry' ? (value || '') : '',
             apex: field === 'apex' ? (value || '') : '',
@@ -554,6 +550,83 @@ app.delete('/api/corner-notes/:id', requireAuth, (req, res) => {
     }
     cornerNotes.splice(index, 1);
     writeJsonFile('corner-notes.json', cornerNotes);
+    res.status(204).send();
+});
+
+// ============ SESSIONS API ============
+
+// GET all sessions (user's sessions only, with optional filters)
+app.get('/api/sessions', requireAuth, (req, res) => {
+    let sessions = readJsonFile('sessions.json');
+    sessions = sessions.filter(s => s.userId === req.session.userId);
+    if (req.query.carId) {
+        sessions = sessions.filter(s => s.carId === req.query.carId);
+    }
+    if (req.query.trackId) {
+        sessions = sessions.filter(s => s.trackId === req.query.trackId);
+    }
+    res.json(sessions);
+});
+
+// GET single session (user's session only)
+app.get('/api/sessions/:id', requireAuth, (req, res) => {
+    const sessions = readJsonFile('sessions.json');
+    const session = sessions.find(s => s.id === req.params.id && s.userId === req.session.userId);
+    if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+    }
+    res.json(session);
+});
+
+// POST create session
+app.post('/api/sessions', requireAuth, (req, res) => {
+    const sessions = readJsonFile('sessions.json');
+    const newSession = {
+        id: uuidv4(),
+        userId: req.session.userId,
+        carId: req.body.carId || null,
+        trackId: req.body.trackId || null,
+        type: req.body.type || '',
+        date: req.body.date || new Date().toISOString().split('T')[0],
+        trackConditions: req.body.trackConditions || ''
+    };
+    sessions.push(newSession);
+    writeJsonFile('sessions.json', sessions);
+    res.status(201).json(newSession);
+});
+
+// PUT update session (user's session only)
+app.put('/api/sessions/:id', requireAuth, (req, res) => {
+    const sessions = readJsonFile('sessions.json');
+    const index = sessions.findIndex(s => s.id === req.params.id && s.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Session not found' });
+    }
+    sessions[index] = {
+        ...sessions[index],
+        type: req.body.type ?? sessions[index].type,
+        date: req.body.date ?? sessions[index].date,
+        trackConditions: req.body.trackConditions ?? sessions[index].trackConditions
+    };
+    writeJsonFile('sessions.json', sessions);
+    res.json(sessions[index]);
+});
+
+// DELETE session (user's session only)
+app.delete('/api/sessions/:id', requireAuth, (req, res) => {
+    let sessions = readJsonFile('sessions.json');
+    const index = sessions.findIndex(s => s.id === req.params.id && s.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Session not found' });
+    }
+    sessions.splice(index, 1);
+    writeJsonFile('sessions.json', sessions);
+
+    // Also delete related corner notes for this session
+    let cornerNotes = readJsonFile('corner-notes.json');
+    cornerNotes = cornerNotes.filter(cn => !(cn.sessionId === req.params.id && cn.userId === req.session.userId));
+    writeJsonFile('corner-notes.json', cornerNotes);
+
     res.status(204).send();
 });
 

@@ -811,6 +811,7 @@ async function loadTracks() {
                 </div>
                 <div class="list-item-actions">
                     <a href="track.html?id=${track.id}" class="btn btn-primary btn-sm">View</a>
+                    <a href="session-notes.html?id=${track.id}" class="btn btn-primary btn-sm">Session Notes</a>
                     <button class="btn btn-secondary btn-sm" onclick="editTrack('${track.id}')">Edit</button>
                     <button class="btn btn-danger btn-sm" onclick="deleteTrack('${track.id}')">Delete</button>
                 </div>
@@ -931,11 +932,11 @@ async function loadTrackDetails() {
             trackImageContainer.style.display = 'none';
         }
 
-        // Store track data for corner notes
-        window.currentTrack = track;
-
-        // Load cars into corner notes dropdown
-        await loadCornerNotesCars();
+        // Set session notes link
+        const sessionNotesLink = document.getElementById('session-notes-link');
+        if (sessionNotesLink) {
+            sessionNotesLink.href = `session-notes.html?id=${trackId}`;
+        }
 
         // Load track notes
         loadTrackNotes(trackId);
@@ -1227,6 +1228,390 @@ async function deleteTrackNote(id) {
     }
 }
 
+// ============ SESSION NOTES PAGE ============
+
+async function loadSessionNotesDetails() {
+    const trackId = getUrlParam('id');
+    if (!trackId) {
+        window.location.href = '/tracks.html';
+        return;
+    }
+
+    try {
+        const track = await api.get(`/api/tracks/${trackId}`);
+
+        // Update breadcrumb link
+        const trackLink = document.getElementById('track-link');
+        if (trackLink) {
+            trackLink.href = `track.html?id=${trackId}`;
+            trackLink.textContent = track.name;
+        }
+
+        document.getElementById('track-name-title').textContent = track.name;
+
+        // Display track image if available
+        const trackImageContainer = document.getElementById('track-image-container');
+        if (trackImageContainer && track.imageUrl) {
+            const img = document.createElement('img');
+            img.src = track.imageUrl;
+            img.alt = track.name + ' layout';
+            img.className = 'track-layout-image';
+            img.onerror = function() {
+                trackImageContainer.style.display = 'none';
+            };
+            trackImageContainer.innerHTML = '';
+            trackImageContainer.appendChild(img);
+            trackImageContainer.style.display = 'block';
+        } else if (trackImageContainer) {
+            trackImageContainer.style.display = 'none';
+        }
+
+        // Store track data
+        window.currentTrack = track;
+        window.currentSession = null;
+
+        // Load cars dropdown
+        await loadSessionNotesCars();
+    } catch (error) {
+        console.error('Error loading track:', error);
+        alert('Track not found');
+        window.location.href = '/tracks.html';
+    }
+}
+
+async function loadSessionNotesCars() {
+    const select = document.getElementById('sessionNotesCar');
+    if (!select) return;
+
+    try {
+        const cars = await api.get('/api/cars');
+        select.innerHTML = '<option value="">Select a car...</option>' +
+            cars.map(car => {
+                const label = car.series ? `${car.name} (${car.series})` : car.name;
+                return `<option value="${car.id}">${escapeHtml(label)}</option>`;
+            }).join('');
+    } catch (error) {
+        console.error('Error loading cars:', error);
+    }
+}
+
+async function onSessionNotesCarChange() {
+    const select = document.getElementById('sessionNotesCar');
+    const carId = select ? select.value : '';
+    const track = window.currentTrack;
+
+    // Hide session selector and corner notes if no car selected
+    const sessionContainer = document.getElementById('session-selector-container');
+    const cornerNotesSection = document.getElementById('corner-notes-section');
+    const sessionInfo = document.getElementById('session-info');
+
+    if (!carId || !track) {
+        if (sessionContainer) sessionContainer.style.display = 'none';
+        if (cornerNotesSection) cornerNotesSection.style.display = 'none';
+        window.currentSession = null;
+        return;
+    }
+
+    // Store current car
+    window.currentCarId = carId;
+
+    // Show session selector and load sessions
+    if (sessionContainer) sessionContainer.style.display = 'block';
+    if (sessionInfo) sessionInfo.style.display = 'none';
+    if (cornerNotesSection) cornerNotesSection.style.display = 'none';
+
+    await loadSessions(track.id, carId);
+}
+
+async function loadSessions(trackId, carId) {
+    const select = document.getElementById('sessionSelect');
+    if (!select) return;
+
+    try {
+        const sessions = await api.get(`/api/sessions?trackId=${trackId}&carId=${carId}`);
+
+        // Sort by date descending
+        sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        select.innerHTML = '<option value="">Select a session...</option>' +
+            sessions.map(session => {
+                const dateStr = formatDate(session.date);
+                return `<option value="${session.id}">${session.type} - ${dateStr}</option>`;
+            }).join('');
+
+        window.currentSession = null;
+    } catch (error) {
+        console.error('Error loading sessions:', error);
+    }
+}
+
+async function onSessionChange() {
+    const select = document.getElementById('sessionSelect');
+    const sessionId = select ? select.value : '';
+    const track = window.currentTrack;
+
+    const sessionInfo = document.getElementById('session-info');
+    const cornerNotesSection = document.getElementById('corner-notes-section');
+
+    if (!sessionId) {
+        if (sessionInfo) sessionInfo.style.display = 'none';
+        if (cornerNotesSection) cornerNotesSection.style.display = 'none';
+        window.currentSession = null;
+        return;
+    }
+
+    try {
+        const session = await api.get(`/api/sessions/${sessionId}`);
+        window.currentSession = session;
+
+        // Display session info
+        if (sessionInfo) {
+            const typeBadge = document.getElementById('session-type-badge');
+            const dateSpan = document.getElementById('session-date');
+            const conditionsSpan = document.getElementById('session-conditions');
+
+            if (typeBadge) {
+                typeBadge.textContent = session.type;
+                typeBadge.className = 'badge badge-' + session.type.toLowerCase();
+            }
+            if (dateSpan) dateSpan.textContent = formatDate(session.date);
+            if (conditionsSpan) conditionsSpan.textContent = session.trackConditions ? `(${session.trackConditions})` : '';
+
+            sessionInfo.style.display = 'flex';
+        }
+
+        // Show and load corner notes
+        if (cornerNotesSection) cornerNotesSection.style.display = 'block';
+        loadCornerNotesForSession(session.id, track.corners || []);
+    } catch (error) {
+        console.error('Error loading session:', error);
+    }
+}
+
+function showAddSessionModal() {
+    const form = document.getElementById('session-form');
+    form.reset();
+    delete form.dataset.sessionId;
+    document.getElementById('session-modal-title').textContent = 'Add Session';
+
+    // Set today's date
+    form.sessionDate.value = new Date().toISOString().split('T')[0];
+
+    openModal('session-modal');
+}
+
+async function saveSession(event) {
+    event.preventDefault();
+    const form = event.target;
+    const id = form.dataset.sessionId;
+    const trackId = getUrlParam('id');
+
+    // Get carId from dropdown as fallback
+    const carSelect = document.getElementById('sessionNotesCar');
+    const carId = window.currentCarId || (carSelect ? carSelect.value : null);
+
+    console.log('saveSession called', { id, trackId, carId });
+
+    if (!carId || !trackId) {
+        alert('Please select a car first');
+        return;
+    }
+
+    const sessionData = {
+        trackId: trackId,
+        carId: carId,
+        type: form.sessionType.value,
+        date: form.sessionDate.value,
+        trackConditions: form.sessionConditions.value
+    };
+
+    console.log('sessionData:', sessionData);
+
+    try {
+        let savedSession;
+        if (id) {
+            console.log('Updating session:', id);
+            savedSession = await api.put(`/api/sessions/${id}`, sessionData);
+        } else {
+            console.log('Creating new session');
+            const response = await fetch('/api/sessions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(sessionData)
+            });
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                const text = await response.text();
+                console.log('Response text:', text);
+                throw new Error(`HTTP ${response.status}: ${text}`);
+            }
+            savedSession = await response.json();
+        }
+        console.log('Saved session:', savedSession);
+        closeModal('session-modal');
+        form.reset();
+        delete form.dataset.sessionId;
+
+        // Reload sessions and select the new/updated one
+        await loadSessions(trackId, carId);
+        document.getElementById('sessionSelect').value = savedSession.id;
+        onSessionChange();
+    } catch (error) {
+        console.error('Error saving session:', error);
+        alert('Error saving session: ' + error.message);
+    }
+}
+
+async function editCurrentSession() {
+    const session = window.currentSession;
+    if (!session) return;
+
+    const form = document.getElementById('session-form');
+    form.sessionType.value = session.type || '';
+    form.sessionDate.value = session.date || '';
+    form.sessionConditions.value = session.trackConditions || '';
+    form.dataset.sessionId = session.id;
+
+    document.getElementById('session-modal-title').textContent = 'Edit Session';
+    openModal('session-modal');
+}
+
+async function deleteCurrentSession() {
+    const session = window.currentSession;
+    if (!session) return;
+
+    if (!confirm('Are you sure you want to delete this session? All corner notes for this session will also be deleted.')) {
+        return;
+    }
+
+    try {
+        await api.delete(`/api/sessions/${session.id}`);
+        window.currentSession = null;
+
+        // Reload sessions
+        const trackId = getUrlParam('id');
+        const carId = window.currentCarId;
+        await loadSessions(trackId, carId);
+
+        // Hide session info and corner notes
+        document.getElementById('session-info').style.display = 'none';
+        document.getElementById('corner-notes-section').style.display = 'none';
+    } catch (error) {
+        console.error('Error deleting session:', error);
+        alert('Error deleting session');
+    }
+}
+
+async function loadCornerNotesForSession(sessionId, corners) {
+    const container = document.getElementById('corner-notes-container');
+    if (!container) return;
+
+    if (!corners || corners.length === 0) {
+        container.innerHTML = '<p class="corner-notes-empty">No corners defined for this track. Edit the track to add corners.</p>';
+        return;
+    }
+
+    try {
+        const cornerNotes = await api.get(`/api/corner-notes?sessionId=${sessionId}`);
+        const notesMap = {};
+        cornerNotes.forEach(cn => {
+            notesMap[cn.cornerName] = {
+                entry: cn.entry || '',
+                apex: cn.apex || '',
+                exit: cn.exit || ''
+            };
+        });
+
+        container.innerHTML = corners.map((cornerName, index) => {
+            const cornerNum = index + 1;
+            const safeId = cornerName.replace(/[^a-zA-Z0-9]/g, '-');
+            const notes = notesMap[cornerName] || { entry: '', apex: '', exit: '' };
+            const displayName = cornerName.replace(/^\d+\s*/, '');
+
+            return `
+                <div class="corner-note-card">
+                    <div class="corner-note-header">
+                        <span class="corner-number">${cornerNum}</span>
+                        <h4>${escapeHtml(displayName)}</h4>
+                    </div>
+                    <div class="corner-note-fields">
+                        <div class="corner-note-field">
+                            <label>Entry</label>
+                            <textarea
+                                data-session-id="${sessionId}"
+                                data-corner-name="${escapeHtml(cornerName)}"
+                                data-field="entry"
+                                placeholder="Entry notes..."
+                                onblur="saveCornerNoteForSession(this)"
+                            >${escapeHtml(notes.entry)}</textarea>
+                        </div>
+                        <div class="corner-note-field">
+                            <label>Apex</label>
+                            <textarea
+                                data-session-id="${sessionId}"
+                                data-corner-name="${escapeHtml(cornerName)}"
+                                data-field="apex"
+                                placeholder="Apex notes..."
+                                onblur="saveCornerNoteForSession(this)"
+                            >${escapeHtml(notes.apex)}</textarea>
+                        </div>
+                        <div class="corner-note-field">
+                            <label>Exit</label>
+                            <textarea
+                                data-session-id="${sessionId}"
+                                data-corner-name="${escapeHtml(cornerName)}"
+                                data-field="exit"
+                                placeholder="Exit notes..."
+                                onblur="saveCornerNoteForSession(this)"
+                            >${escapeHtml(notes.exit)}</textarea>
+                        </div>
+                    </div>
+                    <div class="save-status" id="status-${safeId}"></div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading corner notes:', error);
+        container.innerHTML = '<p class="corner-notes-empty">Error loading corner notes</p>';
+    }
+}
+
+async function saveCornerNoteForSession(textarea) {
+    const sessionId = textarea.dataset.sessionId;
+    const cornerName = textarea.dataset.cornerName;
+    const field = textarea.dataset.field;
+    const value = textarea.value;
+    const safeId = cornerName.replace(/[^a-zA-Z0-9]/g, '-');
+    const statusEl = document.getElementById('status-' + safeId);
+
+    if (statusEl) {
+        statusEl.textContent = 'Saving...';
+        statusEl.className = 'save-status';
+    }
+
+    try {
+        await api.post('/api/corner-notes', {
+            sessionId: sessionId,
+            cornerName: cornerName,
+            field: field,
+            value: value
+        });
+        if (statusEl) {
+            statusEl.textContent = 'Saved';
+            statusEl.className = 'save-status saved';
+            setTimeout(() => {
+                statusEl.textContent = '';
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Error saving corner note:', error);
+        if (statusEl) {
+            statusEl.textContent = 'Error saving';
+            statusEl.className = 'save-status';
+        }
+    }
+}
+
 // Utility function to escape HTML
 function escapeHtml(text) {
     if (!text) return '';
@@ -1256,5 +1641,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadTracks();
     } else if (path === '/track.html') {
         loadTrackDetails();
+    } else if (path === '/session-notes.html') {
+        loadSessionNotesDetails();
     }
 });
