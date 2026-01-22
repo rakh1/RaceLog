@@ -229,7 +229,7 @@ app.delete('/api/cars/:id', requireAuth, (req, res) => {
     cars.splice(index, 1);
     writeJsonFile('cars.json', cars);
 
-    // Also delete related setups and track notes (only user's)
+    // Also delete related setups, track notes, and maintenance tasks (only user's)
     let setups = readJsonFile('setups.json');
     setups = setups.filter(s => !(s.carId === req.params.id && s.userId === req.session.userId));
     writeJsonFile('setups.json', setups);
@@ -237,6 +237,10 @@ app.delete('/api/cars/:id', requireAuth, (req, res) => {
     let trackNotes = readJsonFile('track-notes.json');
     trackNotes = trackNotes.filter(tn => !(tn.carId === req.params.id && tn.userId === req.session.userId));
     writeJsonFile('track-notes.json', trackNotes);
+
+    let maintenance = readJsonFile('maintenance.json');
+    maintenance = maintenance.filter(m => !(m.carId === req.params.id && m.userId === req.session.userId));
+    writeJsonFile('maintenance.json', maintenance);
 
     res.status(204).send();
 });
@@ -550,6 +554,78 @@ app.delete('/api/corner-notes/:id', requireAuth, (req, res) => {
     }
     cornerNotes.splice(index, 1);
     writeJsonFile('corner-notes.json', cornerNotes);
+    res.status(204).send();
+});
+
+// ============ MAINTENANCE API ============
+
+// GET all maintenance tasks (user's tasks only, with optional carId filter)
+app.get('/api/maintenance', requireAuth, (req, res) => {
+    let maintenance = readJsonFile('maintenance.json');
+    maintenance = maintenance.filter(m => m.userId === req.session.userId);
+    if (req.query.carId) {
+        maintenance = maintenance.filter(m => m.carId === req.query.carId);
+    }
+    res.json(maintenance);
+});
+
+// GET single maintenance task (user's task only)
+app.get('/api/maintenance/:id', requireAuth, (req, res) => {
+    const maintenance = readJsonFile('maintenance.json');
+    const task = maintenance.find(m => m.id === req.params.id && m.userId === req.session.userId);
+    if (!task) {
+        return res.status(404).json({ error: 'Maintenance task not found' });
+    }
+    res.json(task);
+});
+
+// POST create maintenance task
+app.post('/api/maintenance', requireAuth, (req, res) => {
+    const maintenance = readJsonFile('maintenance.json');
+    const newTask = {
+        id: uuidv4(),
+        userId: req.session.userId,
+        carId: req.body.carId || null,
+        date: req.body.date || new Date().toISOString().split('T')[0],
+        type: req.body.type || '',
+        name: req.body.name || '',
+        description: req.body.description || '',
+        cost: req.body.cost || 0,
+        mileage: req.body.mileage || '',
+        partsUsed: req.body.partsUsed || '',
+        notes: req.body.notes || ''
+    };
+    maintenance.push(newTask);
+    writeJsonFile('maintenance.json', maintenance);
+    res.status(201).json(newTask);
+});
+
+// PUT update maintenance task (user's task only)
+app.put('/api/maintenance/:id', requireAuth, (req, res) => {
+    const maintenance = readJsonFile('maintenance.json');
+    const index = maintenance.findIndex(m => m.id === req.params.id && m.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Maintenance task not found' });
+    }
+    maintenance[index] = {
+        ...maintenance[index],
+        ...req.body,
+        id: maintenance[index].id,
+        userId: maintenance[index].userId
+    };
+    writeJsonFile('maintenance.json', maintenance);
+    res.json(maintenance[index]);
+});
+
+// DELETE maintenance task (user's task only)
+app.delete('/api/maintenance/:id', requireAuth, (req, res) => {
+    let maintenance = readJsonFile('maintenance.json');
+    const index = maintenance.findIndex(m => m.id === req.params.id && m.userId === req.session.userId);
+    if (index === -1) {
+        return res.status(404).json({ error: 'Maintenance task not found' });
+    }
+    maintenance.splice(index, 1);
+    writeJsonFile('maintenance.json', maintenance);
     res.status(204).send();
 });
 

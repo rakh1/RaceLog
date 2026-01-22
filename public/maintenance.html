@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RaceLog - Maintenance</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">RaceLog</a>
+            <div class="nav-links">
+                <a href="/">Cars</a>
+                <a href="/tracks.html">Tracks</a>
+            </div>
+            <div class="user-info">
+                <span class="username">Logged in as <strong id="current-username"></strong></span>
+                <button class="btn-logout" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="/">Cars</a>
+            <span>/</span>
+            <span id="car-name-breadcrumb">Loading...</span>
+            <span>/</span>
+            <span>Maintenance</span>
+        </div>
+
+        <div class="page-header">
+            <div>
+                <h1 id="car-name-title">Loading...</h1>
+                <p class="text-muted">Maintenance Log</p>
+            </div>
+            <button class="btn btn-primary" onclick="showAddMaintenanceModal()">Add Maintenance</button>
+        </div>
+
+        <div class="list" id="maintenance-list">
+            <p class="text-center text-muted">Loading...</p>
+        </div>
+    </div>
+
+    <!-- Add/Edit Maintenance Modal -->
+    <div class="modal" id="maintenance-modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 id="maintenance-modal-title">Add Maintenance</h2>
+                <button class="modal-close" onclick="closeModal('maintenance-modal')">&times;</button>
+            </div>
+            <form id="maintenance-form" onsubmit="saveMaintenance(event)">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="maintenanceName">Task Name</label>
+                            <input type="text" class="form-control" id="maintenanceName" name="maintenanceName" required placeholder="e.g., Oil Change">
+                        </div>
+                        <div class="form-group">
+                            <label for="maintenanceDate">Date</label>
+                            <input type="date" class="form-control" id="maintenanceDate" name="maintenanceDate" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="maintenanceType">Type</label>
+                            <select class="form-control" id="maintenanceType" name="maintenanceType">
+                                <option value="">Select type...</option>
+                                <option value="Oil Change">Oil Change</option>
+                                <option value="Brakes">Brakes</option>
+                                <option value="Tires">Tires</option>
+                                <option value="Engine">Engine</option>
+                                <option value="Transmission">Transmission</option>
+                                <option value="Suspension">Suspension</option>
+                                <option value="Electrical">Electrical</option>
+                                <option value="Bodywork">Bodywork</option>
+                                <option value="Inspection">Inspection</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="maintenanceCost">Cost</label>
+                            <input type="number" step="0.01" class="form-control" id="maintenanceCost" name="maintenanceCost" placeholder="0.00">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="maintenanceMileage">Mileage / Hours</label>
+                        <input type="text" class="form-control" id="maintenanceMileage" name="maintenanceMileage" placeholder="e.g., 50,000 km or 120 hours">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="maintenanceDescription">Description</label>
+                        <textarea class="form-control" id="maintenanceDescription" name="maintenanceDescription" placeholder="Describe the maintenance work performed..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="maintenancePartsUsed">Parts Used</label>
+                        <textarea class="form-control" id="maintenancePartsUsed" name="maintenancePartsUsed" placeholder="List parts used (one per line)..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="maintenanceNotes">Notes</label>
+                        <textarea class="form-control" id="maintenanceNotes" name="maintenanceNotes" placeholder="Any additional notes..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('maintenance-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Maintenance Modal -->
+    <div class="modal" id="maintenance-view-modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 id="maintenance-view-title">Maintenance Details</h2>
+                <button class="modal-close" onclick="closeModal('maintenance-view-modal')">&times;</button>
+            </div>
+            <div class="modal-body" id="maintenance-view-content">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('maintenance-view-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

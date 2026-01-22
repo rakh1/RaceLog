@@ -159,7 +159,8 @@ async function loadCars() {
                     <p>${escapeHtml(car.manufacturer || '')}${car.manufacturer && car.series ? ' - ' : ''}${escapeHtml(car.series || '')}${!car.manufacturer && !car.series ? 'No details specified' : ''}</p>
                 </div>
                 <div class="list-item-actions">
-                    <a href="car.html?id=${car.id}" class="btn btn-primary btn-sm">View</a>
+                    <a href="car.html?id=${car.id}" class="btn btn-primary btn-sm">Setups</a>
+                    <a href="maintenance.html?id=${car.id}" class="btn btn-primary btn-sm">Maintenance</a>
                     <button class="btn btn-secondary btn-sm" onclick="editCar('${car.id}')">Edit</button>
                     <button class="btn btn-danger btn-sm" onclick="deleteCar('${car.id}')">Delete</button>
                 </div>
@@ -215,7 +216,7 @@ async function editCar(id) {
 }
 
 async function deleteCar(id) {
-    if (!confirm('Are you sure you want to delete this car? All related setups and track notes will also be deleted.')) {
+    if (!confirm('Are you sure you want to delete this car? All related setups, track notes, and maintenance records will also be deleted.')) {
         return;
     }
 
@@ -574,6 +575,212 @@ async function deleteSetup(id) {
     } catch (error) {
         console.error('Error deleting setup:', error);
         alert('Error deleting setup');
+    }
+}
+
+// ============ MAINTENANCE PAGE ============
+
+async function loadMaintenanceDetails() {
+    const carId = getUrlParam('id');
+    if (!carId) {
+        window.location.href = '/';
+        return;
+    }
+
+    try {
+        const car = await api.get(`/api/cars/${carId}`);
+        document.getElementById('car-name-breadcrumb').textContent = car.name;
+        document.getElementById('car-name-title').textContent = car.name;
+
+        // Load maintenance for this car
+        loadMaintenance(carId);
+    } catch (error) {
+        console.error('Error loading car:', error);
+        alert('Car not found');
+        window.location.href = '/';
+    }
+}
+
+async function loadMaintenance(carId) {
+    const maintenanceContainer = document.getElementById('maintenance-list');
+    if (!maintenanceContainer) return;
+
+    try {
+        const maintenance = await api.get(`/api/maintenance?carId=${carId}`);
+
+        if (maintenance.length === 0) {
+            maintenanceContainer.innerHTML = `
+                <div class="empty-state">
+                    <h3>No maintenance records yet</h3>
+                    <p>Add your first maintenance record for this car</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Sort by date descending (most recent first)
+        maintenance.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        maintenanceContainer.innerHTML = maintenance.map(task => {
+            const costDisplay = task.cost ? `$${parseFloat(task.cost).toFixed(2)}` : '';
+            return `
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <h3>${escapeHtml(task.name)}</h3>
+                        <p>${formatDate(task.date)}${task.type ? ' - ' + escapeHtml(task.type) : ''}${costDisplay ? ' - ' + costDisplay : ''}</p>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn btn-primary btn-sm" onclick="viewMaintenance('${task.id}')">View</button>
+                        <button class="btn btn-secondary btn-sm" onclick="editMaintenance('${task.id}')">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteMaintenance('${task.id}')">Delete</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading maintenance:', error);
+        maintenanceContainer.innerHTML = '<p class="text-center text-muted">Error loading maintenance records</p>';
+    }
+}
+
+function showAddMaintenanceModal() {
+    const form = document.getElementById('maintenance-form');
+    form.reset();
+    delete form.dataset.maintenanceId;
+    document.getElementById('maintenance-modal-title').textContent = 'Add Maintenance';
+
+    // Set today's date
+    form.maintenanceDate.value = new Date().toISOString().split('T')[0];
+
+    openModal('maintenance-modal');
+}
+
+async function saveMaintenance(event) {
+    event.preventDefault();
+    const form = event.target;
+    const id = form.dataset.maintenanceId;
+    const carId = getUrlParam('id');
+
+    const maintenanceData = {
+        carId: carId,
+        date: form.maintenanceDate.value,
+        type: form.maintenanceType.value,
+        name: form.maintenanceName.value,
+        description: form.maintenanceDescription.value,
+        cost: parseFloat(form.maintenanceCost.value) || 0,
+        mileage: form.maintenanceMileage.value,
+        partsUsed: form.maintenancePartsUsed.value,
+        notes: form.maintenanceNotes.value
+    };
+
+    try {
+        if (id) {
+            await api.put(`/api/maintenance/${id}`, maintenanceData);
+        } else {
+            await api.post('/api/maintenance', maintenanceData);
+        }
+        closeModal('maintenance-modal');
+        form.reset();
+        delete form.dataset.maintenanceId;
+        loadMaintenance(carId);
+    } catch (error) {
+        console.error('Error saving maintenance:', error);
+        alert('Error saving maintenance');
+    }
+}
+
+async function editMaintenance(id) {
+    try {
+        const task = await api.get(`/api/maintenance/${id}`);
+        const form = document.getElementById('maintenance-form');
+
+        form.maintenanceName.value = task.name || '';
+        form.maintenanceDate.value = task.date || '';
+        form.maintenanceType.value = task.type || '';
+        form.maintenanceCost.value = task.cost || '';
+        form.maintenanceMileage.value = task.mileage || '';
+        form.maintenanceDescription.value = task.description || '';
+        form.maintenancePartsUsed.value = task.partsUsed || '';
+        form.maintenanceNotes.value = task.notes || '';
+
+        form.dataset.maintenanceId = id;
+        document.getElementById('maintenance-modal-title').textContent = 'Edit Maintenance';
+        openModal('maintenance-modal');
+    } catch (error) {
+        console.error('Error loading maintenance:', error);
+        alert('Error loading maintenance');
+    }
+}
+
+async function viewMaintenance(id) {
+    try {
+        const task = await api.get(`/api/maintenance/${id}`);
+
+        const detailsHtml = `
+            <div class="setup-details">
+                <div class="detail-group">
+                    <h4>General</h4>
+                    <div class="detail-row">
+                        <span class="detail-label">Date</span>
+                        <span class="detail-value">${formatDate(task.date)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Type</span>
+                        <span class="detail-value">${escapeHtml(task.type) || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Cost</span>
+                        <span class="detail-value">${task.cost ? '$' + parseFloat(task.cost).toFixed(2) : '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Mileage / Hours</span>
+                        <span class="detail-value">${escapeHtml(task.mileage) || '-'}</span>
+                    </div>
+                </div>
+
+                ${task.description ? `
+                    <div class="detail-group">
+                        <h4>Description</h4>
+                        <p>${escapeHtml(task.description).replace(/\n/g, '<br>')}</p>
+                    </div>
+                ` : ''}
+
+                ${task.partsUsed ? `
+                    <div class="detail-group">
+                        <h4>Parts Used</h4>
+                        <p>${escapeHtml(task.partsUsed).replace(/\n/g, '<br>')}</p>
+                    </div>
+                ` : ''}
+
+                ${task.notes ? `
+                    <div class="detail-group">
+                        <h4>Notes</h4>
+                        <p>${escapeHtml(task.notes).replace(/\n/g, '<br>')}</p>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        document.getElementById('maintenance-view-title').textContent = task.name;
+        document.getElementById('maintenance-view-content').innerHTML = detailsHtml;
+        openModal('maintenance-view-modal');
+    } catch (error) {
+        console.error('Error loading maintenance:', error);
+        alert('Error loading maintenance');
+    }
+}
+
+async function deleteMaintenance(id) {
+    if (!confirm('Are you sure you want to delete this maintenance record?')) {
+        return;
+    }
+
+    try {
+        await api.delete(`/api/maintenance/${id}`);
+        loadMaintenance(getUrlParam('id'));
+    } catch (error) {
+        console.error('Error deleting maintenance:', error);
+        alert('Error deleting maintenance');
     }
 }
 
@@ -1043,6 +1250,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadCars();
     } else if (path === '/car.html') {
         loadCarDetails();
+    } else if (path === '/maintenance.html') {
+        loadMaintenanceDetails();
     } else if (path === '/tracks.html') {
         loadTracks();
     } else if (path === '/track.html') {
