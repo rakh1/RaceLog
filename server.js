@@ -903,10 +903,9 @@ app.post('/api/maintenance', requireAuth, (req, res) => {
         userId: req.session.userId,
         carId: req.body.carId || null,
         date: req.body.date || new Date().toISOString().split('T')[0],
-        type: req.body.type || '',
+        type: req.body.type || [],
         name: req.body.name || '',
         description: req.body.description || '',
-        cost: req.body.cost || 0,
         mileage: req.body.mileage || '',
         partsUsed: req.body.partsUsed || '',
         notes: req.body.notes || ''
