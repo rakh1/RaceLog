@@ -534,12 +534,28 @@ select.form-control {
 
 /* Auth Pages */
 .auth-container {
-    min-height: 100vh;
+    min-height: calc(100vh - 50px);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 1rem;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.page-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.page-footer p {
+    margin: 0;
 }
 
 .auth-card {
