@@ -242,6 +242,134 @@ app.get('/api/auth/check', (req, res) => {
     }
 });
 
+// ============ USER ACCOUNT API ============
+
+// PUT update username
+app.put('/api/user/username', requireAuth, async (req, res) => {
+    const { username } = req.body;
+
+    if (!username || username.length < 3) {
+        return res.status(400).json({ error: 'Username must be at least 3 characters' });
+    }
+
+    const users = readJsonFile('users.json');
+    const existingUser = users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.id !== req.session.userId);
+
+    if (existingUser) {
+        return res.status(400).json({ error: 'Username already exists' });
+    }
+
+    const userIndex = users.findIndex(u => u.id === req.session.userId);
+    if (userIndex === -1) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+
+    users[userIndex].username = username;
+    writeJsonFile('users.json', users);
+
+    req.session.username = username;
+    res.json({ message: 'Username updated successfully', username: username });
+});
+
+// PUT change password
+app.put('/api/user/password', requireAuth, async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    }
+
+    const users = readJsonFile('users.json');
+    const user = users.find(u => u.id === req.session.userId);
+
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+
+    try {
+        const passwordMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!passwordMatch) {
+            return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+
+        const newPasswordHash = await bcrypt.hash(newPassword, 10);
+        const userIndex = users.findIndex(u => u.id === req.session.userId);
+        users[userIndex].passwordHash = newPasswordHash;
+        writeJsonFile('users.json', users);
+
+        res.json({ message: 'Password changed successfully' });
+    } catch (error) {
+        console.error('Error changing password:', error);
+        res.status(500).json({ error: 'Error changing password' });
+    }
+});
+
+// DELETE user account
+app.delete('/api/user', requireAuth, async (req, res) => {
+    const { password } = req.body;
+
+    if (!password) {
+        return res.status(400).json({ error: 'Password is required to delete account' });
+    }
+
+    const users = readJsonFile('users.json');
+    const user = users.find(u => u.id === req.session.userId);
+
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+
+    try {
+        const passwordMatch = await bcrypt.compare(password, user.passwordHash);
+        if (!passwordMatch) {
+            return res.status(401).json({ error: 'Password is incorrect' });
+        }
+
+        const userId = req.session.userId;
+
+        // Delete all user data
+        const cars = readJsonFile('cars.json').filter(c => c.userId !== userId);
+        writeJsonFile('cars.json', cars);
+
+        const setups = readJsonFile('setups.json').filter(s => s.userId !== userId);
+        writeJsonFile('setups.json', setups);
+
+        const tracks = readJsonFile('tracks.json').filter(t => t.userId !== userId);
+        writeJsonFile('tracks.json', tracks);
+
+        const sessions = readJsonFile('sessions.json').filter(s => s.userId !== userId);
+        writeJsonFile('sessions.json', sessions);
+
+        const cornerNotes = readJsonFile('corner-notes.json').filter(cn => cn.userId !== userId);
+        writeJsonFile('corner-notes.json', cornerNotes);
+
+        const trackNotes = readJsonFile('track-notes.json').filter(tn => tn.userId !== userId);
+        writeJsonFile('track-notes.json', trackNotes);
+
+        const maintenance = readJsonFile('maintenance.json').filter(m => m.userId !== userId);
+        writeJsonFile('maintenance.json', maintenance);
+
+        // Delete user
+        const updatedUsers = users.filter(u => u.id !== userId);
+        writeJsonFile('users.json', updatedUsers);
+
+        // Destroy session
+        req.session.destroy((err) => {
+            if (err) {
+                console.error('Error destroying session:', err);
+            }
+            res.json({ message: 'Account deleted successfully' });
+        });
+    } catch (error) {
+        console.error('Error deleting account:', error);
+        res.status(500).json({ error: 'Error deleting account' });
+    }
+});
+
 // ============ CARS API ============
 
 // GET all cars (user's cars only)

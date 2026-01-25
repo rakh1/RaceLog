@@ -1911,6 +1911,141 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// ============ ACCOUNT PAGE ============
+
+function loadAccountPage(username) {
+    const usernameInput = document.getElementById('newUsername');
+    if (usernameInput) {
+        usernameInput.value = username;
+    }
+}
+
+async function changeUsername(event) {
+    event.preventDefault();
+    const form = event.target;
+    const newUsername = form.newUsername.value.trim();
+    const statusEl = document.getElementById('username-status');
+
+    if (statusEl) {
+        statusEl.textContent = 'Saving...';
+        statusEl.className = 'save-status';
+    }
+
+    try {
+        const response = await fetch('/api/user/username', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: newUsername })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to update username');
+        }
+
+        // Update displayed username
+        updateUserDisplay(data.username);
+
+        if (statusEl) {
+            statusEl.textContent = 'Username updated';
+            statusEl.className = 'save-status saved';
+            setTimeout(() => {
+                statusEl.textContent = '';
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Error updating username:', error);
+        if (statusEl) {
+            statusEl.textContent = error.message;
+            statusEl.className = 'save-status';
+        }
+    }
+}
+
+async function changePassword(event) {
+    event.preventDefault();
+    const form = event.target;
+    const currentPassword = form.currentPassword.value;
+    const newPassword = form.newPassword.value;
+    const confirmPassword = form.confirmPassword.value;
+    const statusEl = document.getElementById('password-status');
+
+    if (newPassword !== confirmPassword) {
+        if (statusEl) {
+            statusEl.textContent = 'New passwords do not match';
+            statusEl.className = 'save-status';
+        }
+        return;
+    }
+
+    if (statusEl) {
+        statusEl.textContent = 'Saving...';
+        statusEl.className = 'save-status';
+    }
+
+    try {
+        const response = await fetch('/api/user/password', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to change password');
+        }
+
+        form.reset();
+
+        if (statusEl) {
+            statusEl.textContent = 'Password changed';
+            statusEl.className = 'save-status saved';
+            setTimeout(() => {
+                statusEl.textContent = '';
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Error changing password:', error);
+        if (statusEl) {
+            statusEl.textContent = error.message;
+            statusEl.className = 'save-status';
+        }
+    }
+}
+
+async function deleteAccount(event) {
+    event.preventDefault();
+
+    if (!confirm('Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.')) {
+        return;
+    }
+
+    const form = event.target;
+    const password = form.deleteConfirmPassword.value;
+
+    try {
+        const response = await fetch('/api/user', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to delete account');
+        }
+
+        alert('Your account has been deleted.');
+        window.location.href = '/login.html';
+    } catch (error) {
+        console.error('Error deleting account:', error);
+        alert(error.message);
+    }
+}
+
 // Initialize based on current page
 document.addEventListener('DOMContentLoaded', async () => {
     const path = window.location.pathname;
@@ -1934,5 +2069,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadTrackDetails();
     } else if (path === '/session-notes.html') {
         loadSessionNotesDetails();
+    } else if (path === '/account.html') {
+        loadAccountPage(username);
     }
 });
