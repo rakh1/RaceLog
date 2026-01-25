@@ -667,6 +667,29 @@ select.form-control {
     object-fit: contain;
 }
 
+/* Session Setup Columns */
+.setup-columns {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1rem;
+}
+
+.setup-column {
+    flex: 1;
+    min-width: 0;
+}
+
+.setup-column:first-child {
+    flex: 0 0 auto;
+}
+
+@media (max-width: 600px) {
+    .setup-columns {
+        flex-direction: column;
+        gap: 1rem;
+    }
+}
+
 /* Session Notes Layout - Fixed Map */
 .session-notes-layout {
     display: flex;
@@ -682,13 +705,27 @@ select.form-control {
 }
 
 .session-notes-map .track-image-container {
-    margin-bottom: 0;
-    max-height: 300px;
+    margin-bottom: 0.5rem;
     overflow: hidden;
 }
 
 .session-notes-map .track-layout-image {
     max-height: 280px;
+    transition: max-height 0.2s ease;
+}
+
+.map-resize-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.map-resize-control input[type="range"] {
+    flex: 1;
+    max-width: 200px;
+    cursor: pointer;
 }
 
 .session-notes-content {

@@ -587,6 +587,7 @@ app.post('/api/sessions', requireAuth, (req, res) => {
         carId: req.body.carId || null,
         trackId: req.body.trackId || null,
         type: req.body.type || '',
+        name: req.body.name || req.body.type || '',
         date: req.body.date || new Date().toISOString().split('T')[0],
         trackConditions: req.body.trackConditions || '',
         tyrePressures: req.body.tyrePressures || null,
@@ -611,6 +612,7 @@ app.put('/api/sessions/:id', requireAuth, (req, res) => {
     sessions[index] = {
         ...sessions[index],
         type: req.body.type ?? sessions[index].type,
+        name: req.body.name ?? sessions[index].name,
         date: req.body.date ?? sessions[index].date,
         trackConditions: req.body.trackConditions ?? sessions[index].trackConditions,
         tyrePressures: req.body.tyrePressures ?? sessions[index].tyrePressures,

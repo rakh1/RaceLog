@@ -1230,6 +1230,14 @@ async function deleteTrackNote(id) {
 
 // ============ SESSION NOTES PAGE ============
 
+function resizeTrackMap(size) {
+    const img = document.querySelector('.session-notes-map .track-layout-image');
+    if (img) {
+        img.style.maxHeight = size + 'px';
+        localStorage.setItem('trackMapSize', size);
+    }
+}
+
 async function loadSessionNotesDetails() {
     const trackId = getUrlParam('id');
     if (!trackId) {
@@ -1251,6 +1259,7 @@ async function loadSessionNotesDetails() {
 
         // Display track image if available
         const trackImageContainer = document.getElementById('track-image-container');
+        const mapResizeControl = document.getElementById('map-resize-control');
         if (trackImageContainer && track.imageUrl) {
             const img = document.createElement('img');
             img.src = track.imageUrl;
@@ -1258,12 +1267,22 @@ async function loadSessionNotesDetails() {
             img.className = 'track-layout-image';
             img.onerror = function() {
                 trackImageContainer.style.display = 'none';
+                if (mapResizeControl) mapResizeControl.style.display = 'none';
             };
             trackImageContainer.innerHTML = '';
             trackImageContainer.appendChild(img);
             trackImageContainer.style.display = 'block';
+
+            // Show resize control and apply saved size
+            if (mapResizeControl) {
+                mapResizeControl.style.display = 'flex';
+                const savedSize = localStorage.getItem('trackMapSize') || '280';
+                document.getElementById('mapSizeSlider').value = savedSize;
+                resizeTrackMap(savedSize);
+            }
         } else if (trackImageContainer) {
             trackImageContainer.style.display = 'none';
+            if (mapResizeControl) mapResizeControl.style.display = 'none';
         }
 
         // Store track data
@@ -1348,7 +1367,8 @@ async function loadSessions(trackId, carId) {
         select.innerHTML = '<option value="">Select a session...</option>' +
             sessions.map(session => {
                 const dateStr = formatDate(session.date);
-                return `<option value="${session.id}">${session.type} - ${dateStr}</option>`;
+                const displayName = session.name || session.type;
+                return `<option value="${session.id}">${escapeHtml(displayName)} - ${dateStr}</option>`;
             }).join('');
 
         window.currentSession = null;
@@ -1416,6 +1436,18 @@ async function onSessionChange() {
     }
 }
 
+function updateSessionNameDefault() {
+    const form = document.getElementById('session-form');
+    const nameInput = form.sessionName;
+    const typeSelect = form.sessionType;
+
+    // Only auto-fill if name is empty or matches a session type
+    const sessionTypes = ['Test', 'Qualifying', 'Race'];
+    if (!nameInput.value || sessionTypes.includes(nameInput.value)) {
+        nameInput.placeholder = typeSelect.value || 'e.g., Morning Test, Race 1';
+    }
+}
+
 function showAddSessionModal() {
     const form = document.getElementById('session-form');
     form.reset();
@@ -1449,6 +1481,7 @@ async function saveSession(event) {
         trackId: trackId,
         carId: carId,
         type: form.sessionType.value,
+        name: form.sessionName.value || form.sessionType.value,
         date: form.sessionDate.value,
         trackConditions: form.sessionConditions.value
     };
@@ -1496,6 +1529,7 @@ async function editCurrentSession() {
 
     const form = document.getElementById('session-form');
     form.sessionType.value = session.type || '';
+    form.sessionName.value = session.name || '';
     form.sessionDate.value = session.date || '';
     form.sessionConditions.value = session.trackConditions || '';
     form.dataset.sessionId = session.id;

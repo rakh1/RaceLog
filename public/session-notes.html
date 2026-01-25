@@ -42,6 +42,10 @@
             <div class="session-notes-map">
                 <div id="track-image-container" class="track-image-container" style="display: none;">
                 </div>
+                <div id="map-resize-control" class="map-resize-control" style="display: none;">
+                    <label for="mapSizeSlider">Map Size:</label>
+                    <input type="range" id="mapSizeSlider" min="150" max="600" value="280" oninput="resizeTrackMap(this.value)">
+                </div>
             </div>
 
             <!-- Right column: Scrollable content -->
@@ -82,38 +86,42 @@
                     </div>
                     <div class="card-body">
                         <form id="session-setup-form">
-                            <h3 class="section-title">Tyre Pressures (psi)</h3>
-                            <div class="grid-2x2 mb-3">
-                                <div class="form-group">
-                                    <label for="sessionTpFL">Front Left</label>
-                                    <input type="number" step="0.1" class="form-control" id="sessionTpFL" name="sessionTpFL" placeholder="e.g., 26">
+                            <div class="setup-columns">
+                                <div class="setup-column">
+                                    <h3 class="section-title">Tyre Pressures (psi)</h3>
+                                    <div class="grid-2x2">
+                                        <div class="form-group">
+                                            <label for="sessionTpFL">Front Left</label>
+                                            <input type="number" step="0.1" class="form-control" id="sessionTpFL" name="sessionTpFL" placeholder="e.g., 26">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="sessionTpFR">Front Right</label>
+                                            <input type="number" step="0.1" class="form-control" id="sessionTpFR" name="sessionTpFR" placeholder="e.g., 26">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="sessionTpRL">Rear Left</label>
+                                            <input type="number" step="0.1" class="form-control" id="sessionTpRL" name="sessionTpRL" placeholder="e.g., 26">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="sessionTpRR">Rear Right</label>
+                                            <input type="number" step="0.1" class="form-control" id="sessionTpRR" name="sessionTpRR" placeholder="e.g., 26">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label for="sessionTpFR">Front Right</label>
-                                    <input type="number" step="0.1" class="form-control" id="sessionTpFR" name="sessionTpFR" placeholder="e.g., 26">
-                                </div>
-                                <div class="form-group">
-                                    <label for="sessionTpRL">Rear Left</label>
-                                    <input type="number" step="0.1" class="form-control" id="sessionTpRL" name="sessionTpRL" placeholder="e.g., 26">
-                                </div>
-                                <div class="form-group">
-                                    <label for="sessionTpRR">Rear Right</label>
-                                    <input type="number" step="0.1" class="form-control" id="sessionTpRR" name="sessionTpRR" placeholder="e.g., 26">
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="sessionFrontARB">Front ARB</label>
-                                    <input type="text" class="form-control" id="sessionFrontARB" name="sessionFrontARB" placeholder="e.g., 4">
-                                </div>
-                                <div class="form-group">
-                                    <label for="sessionRearARB">Rear ARB</label>
-                                    <input type="text" class="form-control" id="sessionRearARB" name="sessionRearARB" placeholder="e.g., 3">
-                                </div>
-                                <div class="form-group">
-                                    <label for="sessionBrakeBias">Brake Bias</label>
-                                    <input type="text" class="form-control" id="sessionBrakeBias" name="sessionBrakeBias" placeholder="e.g., 58%">
+                                <div class="setup-column">
+                                    <h3 class="section-title">Setup</h3>
+                                    <div class="form-group">
+                                        <label for="sessionFrontARB">Front ARB</label>
+                                        <input type="text" class="form-control" id="sessionFrontARB" name="sessionFrontARB" placeholder="e.g., 4">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="sessionRearARB">Rear ARB</label>
+                                        <input type="text" class="form-control" id="sessionRearARB" name="sessionRearARB" placeholder="e.g., 3">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="sessionBrakeBias">Brake Bias</label>
+                                        <input type="text" class="form-control" id="sessionBrakeBias" name="sessionBrakeBias" placeholder="e.g., 58%">
+                                    </div>
                                 </div>
                             </div>
 
@@ -191,12 +199,17 @@
                 <div class="modal-body">
                     <div class="form-group">
                         <label for="sessionType">Session Type</label>
-                        <select class="form-control" id="sessionType" name="sessionType" required>
+                        <select class="form-control" id="sessionType" name="sessionType" required onchange="updateSessionNameDefault()">
                             <option value="">Select type...</option>
                             <option value="Test">Test</option>
                             <option value="Qualifying">Qualifying</option>
                             <option value="Race">Race</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sessionName">Session Name</label>
+                        <input type="text" class="form-control" id="sessionName" name="sessionName" placeholder="e.g., Morning Test, Race 1">
+                        <small class="text-muted">Leave blank to use session type as name</small>
                     </div>
                     <div class="form-group">
                         <label for="sessionDate">Date</label>
