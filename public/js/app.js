@@ -938,12 +938,52 @@ async function loadTrackDetails() {
             sessionNotesLink.href = `session-notes.html?id=${trackId}`;
         }
 
-        // Load track notes
-        loadTrackNotes(trackId);
+        // Store current track for saving
+        window.currentTrack = track;
+
+        // Load circuit notes
+        const circuitNotesTextarea = document.getElementById('circuitNotes');
+        if (circuitNotesTextarea) {
+            circuitNotesTextarea.value = track.circuitNotes || '';
+        }
     } catch (error) {
         console.error('Error loading track:', error);
         alert('Track not found');
         window.location.href = '/tracks.html';
+    }
+}
+
+async function saveCircuitNotes() {
+    const track = window.currentTrack;
+    if (!track) return;
+
+    const textarea = document.getElementById('circuitNotes');
+    const statusEl = document.getElementById('circuit-notes-status');
+
+    if (statusEl) {
+        statusEl.textContent = 'Saving...';
+        statusEl.className = 'save-status';
+    }
+
+    try {
+        const updatedTrack = await api.put(`/api/tracks/${track.id}`, {
+            circuitNotes: textarea.value
+        });
+        window.currentTrack = updatedTrack;
+
+        if (statusEl) {
+            statusEl.textContent = 'Saved';
+            statusEl.className = 'save-status saved';
+            setTimeout(() => {
+                statusEl.textContent = '';
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Error saving circuit notes:', error);
+        if (statusEl) {
+            statusEl.textContent = 'Error saving';
+            statusEl.className = 'save-status';
+        }
     }
 }
 

@@ -1,6 +1,8 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
+const http = require('http');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
@@ -24,6 +26,78 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 if (!fs.existsSync(SESSIONS_DIR)) {
     fs.mkdirSync(SESSIONS_DIR);
+}
+
+// Track images directory
+const TRACK_IMAGES_DIR = path.join(publicPath, 'images', 'tracks');
+if (!fs.existsSync(path.join(publicPath, 'images'))) {
+    fs.mkdirSync(path.join(publicPath, 'images'));
+}
+if (!fs.existsSync(TRACK_IMAGES_DIR)) {
+    fs.mkdirSync(TRACK_IMAGES_DIR);
+}
+
+// Download image from URL and save locally
+async function downloadTrackImage(imageUrl, trackId) {
+    return new Promise((resolve, reject) => {
+        if (!imageUrl || imageUrl.startsWith('/images/')) {
+            // Already local or empty
+            resolve(imageUrl);
+            return;
+        }
+
+        // Determine file extension from URL
+        const urlPath = new URL(imageUrl).pathname;
+        let ext = path.extname(urlPath).toLowerCase();
+        if (!ext || !['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'].includes(ext)) {
+            ext = '.png'; // Default to png
+        }
+
+        const filename = `${trackId}${ext}`;
+        const localPath = path.join(TRACK_IMAGES_DIR, filename);
+        const localUrl = `/images/tracks/${filename}`;
+
+        const protocol = imageUrl.startsWith('https') ? https : http;
+
+        const request = protocol.get(imageUrl, {
+            headers: { 'User-Agent': 'RaceLog/1.0' }
+        }, (response) => {
+            // Handle redirects
+            if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                downloadTrackImage(response.headers.location, trackId)
+                    .then(resolve)
+                    .catch(reject);
+                return;
+            }
+
+            if (response.statusCode !== 200) {
+                reject(new Error(`Failed to download image: ${response.statusCode}`));
+                return;
+            }
+
+            const file = fs.createWriteStream(localPath);
+            response.pipe(file);
+
+            file.on('finish', () => {
+                file.close();
+                resolve(localUrl);
+            });
+
+            file.on('error', (err) => {
+                fs.unlink(localPath, () => {}); // Delete partial file
+                reject(err);
+            });
+        });
+
+        request.on('error', (err) => {
+            reject(err);
+        });
+
+        request.setTimeout(30000, () => {
+            request.destroy();
+            reject(new Error('Download timeout'));
+        });
+    });
 }
 
 // Middleware
@@ -350,15 +424,28 @@ app.get('/api/tracks/:id', requireAuth, (req, res) => {
 });
 
 // POST create track
-app.post('/api/tracks', requireAuth, (req, res) => {
+app.post('/api/tracks', requireAuth, async (req, res) => {
     const tracks = readJsonFile('tracks.json');
+    const trackId = uuidv4();
+
+    // Download image if URL provided
+    let imageUrl = req.body.imageUrl || '';
+    if (imageUrl && !imageUrl.startsWith('/images/')) {
+        try {
+            imageUrl = await downloadTrackImage(imageUrl, trackId);
+        } catch (err) {
+            console.error('Failed to download track image:', err.message);
+            // Keep original URL if download fails
+        }
+    }
+
     const newTrack = {
-        id: uuidv4(),
+        id: trackId,
         userId: req.session.userId,
         name: req.body.name || '',
         location: req.body.location || '',
         length: req.body.length || '',
-        imageUrl: req.body.imageUrl || '',
+        imageUrl: imageUrl,
         corners: req.body.corners || []
     };
     tracks.push(newTrack);
@@ -367,19 +454,33 @@ app.post('/api/tracks', requireAuth, (req, res) => {
 });
 
 // PUT update track (user's track only)
-app.put('/api/tracks/:id', requireAuth, (req, res) => {
+app.put('/api/tracks/:id', requireAuth, async (req, res) => {
     const tracks = readJsonFile('tracks.json');
     const index = tracks.findIndex(t => t.id === req.params.id && t.userId === req.session.userId);
     if (index === -1) {
         return res.status(404).json({ error: 'Track not found' });
     }
+
+    // Download image if new external URL provided
+    let imageUrl = req.body.imageUrl ?? tracks[index].imageUrl;
+    if (req.body.imageUrl && !req.body.imageUrl.startsWith('/images/') && req.body.imageUrl !== tracks[index].imageUrl) {
+        try {
+            imageUrl = await downloadTrackImage(req.body.imageUrl, req.params.id);
+        } catch (err) {
+            console.error('Failed to download track image:', err.message);
+            // Keep original URL if download fails
+            imageUrl = req.body.imageUrl;
+        }
+    }
+
     tracks[index] = {
         ...tracks[index],
         name: req.body.name ?? tracks[index].name,
         location: req.body.location ?? tracks[index].location,
         length: req.body.length ?? tracks[index].length,
-        imageUrl: req.body.imageUrl ?? tracks[index].imageUrl,
-        corners: req.body.corners ?? tracks[index].corners ?? []
+        imageUrl: imageUrl,
+        corners: req.body.corners ?? tracks[index].corners ?? [],
+        circuitNotes: req.body.circuitNotes ?? tracks[index].circuitNotes ?? ''
     };
     writeJsonFile('tracks.json', tracks);
     res.json(tracks[index]);
