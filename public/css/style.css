@@ -667,6 +667,34 @@ select.form-control {
     object-fit: contain;
 }
 
+/* Session Notes Layout - Fixed Map */
+.session-notes-layout {
+    display: flex;
+    flex-direction: column;
+}
+
+.session-notes-map {
+    position: sticky;
+    top: 60px;
+    z-index: 10;
+    background-color: var(--bg-color);
+    padding-bottom: 1rem;
+}
+
+.session-notes-map .track-image-container {
+    margin-bottom: 0;
+    max-height: 300px;
+    overflow: hidden;
+}
+
+.session-notes-map .track-layout-image {
+    max-height: 280px;
+}
+
+.session-notes-content {
+    width: 100%;
+}
+
 /* Corner Notes */
 .corner-notes-header {
     display: flex;

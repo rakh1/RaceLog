@@ -1306,16 +1306,18 @@ async function onSessionNotesCarChange() {
     const carId = select ? select.value : '';
     const track = window.currentTrack;
 
-    // Hide session selector, session setup, and corner notes if no car selected
+    // Hide session selector, session setup, corner notes, and focus areas if no car selected
     const sessionContainer = document.getElementById('session-selector-container');
     const cornerNotesSection = document.getElementById('corner-notes-section');
     const sessionSetupSection = document.getElementById('session-setup-section');
+    const focusAreasSection = document.getElementById('focus-areas-section');
     const sessionInfo = document.getElementById('session-info');
 
     if (!carId || !track) {
         if (sessionContainer) sessionContainer.style.display = 'none';
         if (cornerNotesSection) cornerNotesSection.style.display = 'none';
         if (sessionSetupSection) sessionSetupSection.style.display = 'none';
+        if (focusAreasSection) focusAreasSection.style.display = 'none';
         window.currentSession = null;
         return;
     }
@@ -1328,6 +1330,7 @@ async function onSessionNotesCarChange() {
     if (sessionInfo) sessionInfo.style.display = 'none';
     if (cornerNotesSection) cornerNotesSection.style.display = 'none';
     if (sessionSetupSection) sessionSetupSection.style.display = 'none';
+    if (focusAreasSection) focusAreasSection.style.display = 'none';
 
     await loadSessions(track.id, carId);
 }
@@ -1362,11 +1365,13 @@ async function onSessionChange() {
     const sessionInfo = document.getElementById('session-info');
     const cornerNotesSection = document.getElementById('corner-notes-section');
     const sessionSetupSection = document.getElementById('session-setup-section');
+    const focusAreasSection = document.getElementById('focus-areas-section');
 
     if (!sessionId) {
         if (sessionInfo) sessionInfo.style.display = 'none';
         if (cornerNotesSection) cornerNotesSection.style.display = 'none';
         if (sessionSetupSection) sessionSetupSection.style.display = 'none';
+        if (focusAreasSection) focusAreasSection.style.display = 'none';
         window.currentSession = null;
         return;
     }
@@ -1400,6 +1405,12 @@ async function onSessionChange() {
         // Show and load corner notes
         if (cornerNotesSection) cornerNotesSection.style.display = 'block';
         loadCornerNotesForSession(session.id, track.corners || []);
+
+        // Show and load focus areas
+        if (focusAreasSection) {
+            focusAreasSection.style.display = 'block';
+            loadFocusAreas(session);
+        }
     } catch (error) {
         console.error('Error loading session:', error);
     }
@@ -1580,6 +1591,50 @@ async function saveSessionSetup(event) {
         }
     } catch (error) {
         console.error('Error saving session setup:', error);
+        if (statusEl) {
+            statusEl.textContent = 'Error saving';
+            statusEl.className = 'save-status';
+        }
+    }
+}
+
+function loadFocusAreas(session) {
+    const textarea = document.getElementById('focusAreas');
+    if (textarea) {
+        textarea.value = session.focusAreas || '';
+    }
+}
+
+async function saveFocusAreas() {
+    const session = window.currentSession;
+    if (!session) {
+        alert('No session selected');
+        return;
+    }
+
+    const textarea = document.getElementById('focusAreas');
+    const statusEl = document.getElementById('focus-areas-status');
+
+    if (statusEl) {
+        statusEl.textContent = 'Saving...';
+        statusEl.className = 'save-status';
+    }
+
+    try {
+        const updatedSession = await api.put(`/api/sessions/${session.id}`, {
+            focusAreas: textarea.value
+        });
+        window.currentSession = updatedSession;
+
+        if (statusEl) {
+            statusEl.textContent = 'Saved';
+            statusEl.className = 'save-status saved';
+            setTimeout(() => {
+                statusEl.textContent = '';
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Error saving focus areas:', error);
         if (statusEl) {
             statusEl.textContent = 'Error saving';
             statusEl.className = 'save-status';

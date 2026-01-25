@@ -37,98 +37,122 @@
             </div>
         </div>
 
-        <div id="track-image-container" class="track-image-container" style="display: none;">
-        </div>
+        <div class="session-notes-layout">
+            <!-- Left column: Fixed track map -->
+            <div class="session-notes-map">
+                <div id="track-image-container" class="track-image-container" style="display: none;">
+                </div>
+            </div>
 
-        <!-- Car Selector -->
-        <div class="session-selector-section">
-            <div class="selector-row">
-                <label for="sessionNotesCar">Car:</label>
-                <select class="form-control" id="sessionNotesCar" onchange="onSessionNotesCarChange()">
-                    <option value="">Select a car...</option>
-                </select>
-            </div>
-        </div>
+            <!-- Right column: Scrollable content -->
+            <div class="session-notes-content">
+                <!-- Car Selector -->
+                <div class="session-selector-section">
+                    <div class="selector-row">
+                        <label for="sessionNotesCar">Car:</label>
+                        <select class="form-control" id="sessionNotesCar" onchange="onSessionNotesCarChange()">
+                            <option value="">Select a car...</option>
+                        </select>
+                    </div>
+                </div>
 
-        <!-- Session Selector (shown after car is selected) -->
-        <div id="session-selector-container" class="session-selector-section" style="display: none;">
-            <div class="selector-row">
-                <label for="sessionSelect">Session:</label>
-                <select class="form-control" id="sessionSelect" onchange="onSessionChange()">
-                    <option value="">Select a session...</option>
-                </select>
-                <button class="btn btn-primary btn-sm" onclick="showAddSessionModal()">Add Session</button>
-            </div>
-            <div id="session-info" class="session-info" style="display: none;">
-                <span id="session-type-badge" class="badge"></span>
-                <span id="session-date"></span>
-                <span id="session-conditions"></span>
-                <button class="btn btn-secondary btn-sm" onclick="editCurrentSession()">Edit</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteCurrentSession()">Delete</button>
-            </div>
-        </div>
+                <!-- Session Selector (shown after car is selected) -->
+                <div id="session-selector-container" class="session-selector-section" style="display: none;">
+                    <div class="selector-row">
+                        <label for="sessionSelect">Session:</label>
+                        <select class="form-control" id="sessionSelect" onchange="onSessionChange()">
+                            <option value="">Select a session...</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" onclick="showAddSessionModal()">Add Session</button>
+                    </div>
+                    <div id="session-info" class="session-info" style="display: none;">
+                        <span id="session-type-badge" class="badge"></span>
+                        <span id="session-date"></span>
+                        <span id="session-conditions"></span>
+                        <button class="btn btn-secondary btn-sm" onclick="editCurrentSession()">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteCurrentSession()">Delete</button>
+                    </div>
+                </div>
 
-        <!-- Session Car Setup (shown after session is selected) -->
-        <div id="session-setup-section" class="card" style="display: none; margin-bottom: 1.5rem;">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h2>Session Car Setup</h2>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="showImportSetupModal()">Import from Car Setup</button>
-            </div>
-            <div class="card-body">
-                <form id="session-setup-form">
-                    <h3 class="section-title">Tyre Pressures (psi)</h3>
-                    <div class="grid-2x2 mb-3">
+                <!-- Session Car Setup (shown after session is selected) -->
+                <div id="session-setup-section" class="card" style="display: none; margin-bottom: 1.5rem;">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2>Session Car Setup</h2>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="showImportSetupModal()">Import from Car Setup</button>
+                    </div>
+                    <div class="card-body">
+                        <form id="session-setup-form">
+                            <h3 class="section-title">Tyre Pressures (psi)</h3>
+                            <div class="grid-2x2 mb-3">
+                                <div class="form-group">
+                                    <label for="sessionTpFL">Front Left</label>
+                                    <input type="number" step="0.1" class="form-control" id="sessionTpFL" name="sessionTpFL" placeholder="e.g., 26">
+                                </div>
+                                <div class="form-group">
+                                    <label for="sessionTpFR">Front Right</label>
+                                    <input type="number" step="0.1" class="form-control" id="sessionTpFR" name="sessionTpFR" placeholder="e.g., 26">
+                                </div>
+                                <div class="form-group">
+                                    <label for="sessionTpRL">Rear Left</label>
+                                    <input type="number" step="0.1" class="form-control" id="sessionTpRL" name="sessionTpRL" placeholder="e.g., 26">
+                                </div>
+                                <div class="form-group">
+                                    <label for="sessionTpRR">Rear Right</label>
+                                    <input type="number" step="0.1" class="form-control" id="sessionTpRR" name="sessionTpRR" placeholder="e.g., 26">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="sessionFrontARB">Front ARB</label>
+                                    <input type="text" class="form-control" id="sessionFrontARB" name="sessionFrontARB" placeholder="e.g., 4">
+                                </div>
+                                <div class="form-group">
+                                    <label for="sessionRearARB">Rear ARB</label>
+                                    <input type="text" class="form-control" id="sessionRearARB" name="sessionRearARB" placeholder="e.g., 3">
+                                </div>
+                                <div class="form-group">
+                                    <label for="sessionBrakeBias">Brake Bias</label>
+                                    <input type="text" class="form-control" id="sessionBrakeBias" name="sessionBrakeBias" placeholder="e.g., 58%">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="sessionSetupComments">Comments</label>
+                                <textarea class="form-control" id="sessionSetupComments" name="sessionSetupComments" rows="3" placeholder="Setup notes for this session..."></textarea>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Save Setup</button>
+                                <span id="session-setup-status" class="save-status"></span>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Corner Notes (shown after session is selected) -->
+                <div id="corner-notes-section" style="display: none;">
+                    <h2 class="section-title">Corner Notes</h2>
+                    <div id="corner-notes-container" class="corner-notes-container">
+                        <p class="corner-notes-empty">Select a session to view and edit corner notes</p>
+                    </div>
+                </div>
+
+                <!-- Focus Areas (shown after session is selected) -->
+                <div id="focus-areas-section" class="card" style="display: none; margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <h2>Focus Areas</h2>
+                    </div>
+                    <div class="card-body">
                         <div class="form-group">
-                            <label for="sessionTpFL">Front Left</label>
-                            <input type="number" step="0.1" class="form-control" id="sessionTpFL" name="sessionTpFL" placeholder="e.g., 26">
+                            <textarea class="form-control" id="focusAreas" rows="5" placeholder="What to focus on for this session..."></textarea>
                         </div>
-                        <div class="form-group">
-                            <label for="sessionTpFR">Front Right</label>
-                            <input type="number" step="0.1" class="form-control" id="sessionTpFR" name="sessionTpFR" placeholder="e.g., 26">
-                        </div>
-                        <div class="form-group">
-                            <label for="sessionTpRL">Rear Left</label>
-                            <input type="number" step="0.1" class="form-control" id="sessionTpRL" name="sessionTpRL" placeholder="e.g., 26">
-                        </div>
-                        <div class="form-group">
-                            <label for="sessionTpRR">Rear Right</label>
-                            <input type="number" step="0.1" class="form-control" id="sessionTpRR" name="sessionTpRR" placeholder="e.g., 26">
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveFocusAreas()">Save</button>
+                            <span id="focus-areas-status" class="save-status"></span>
                         </div>
                     </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="sessionFrontARB">Front ARB</label>
-                            <input type="text" class="form-control" id="sessionFrontARB" name="sessionFrontARB" placeholder="e.g., 4">
-                        </div>
-                        <div class="form-group">
-                            <label for="sessionRearARB">Rear ARB</label>
-                            <input type="text" class="form-control" id="sessionRearARB" name="sessionRearARB" placeholder="e.g., 3">
-                        </div>
-                        <div class="form-group">
-                            <label for="sessionBrakeBias">Brake Bias</label>
-                            <input type="text" class="form-control" id="sessionBrakeBias" name="sessionBrakeBias" placeholder="e.g., 58%">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="sessionSetupComments">Comments</label>
-                        <textarea class="form-control" id="sessionSetupComments" name="sessionSetupComments" rows="3" placeholder="Setup notes for this session..."></textarea>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Save Setup</button>
-                        <span id="session-setup-status" class="save-status"></span>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Corner Notes (shown after session is selected) -->
-        <div id="corner-notes-section" style="display: none;">
-            <h2 class="section-title">Corner Notes</h2>
-            <div id="corner-notes-container" class="corner-notes-container">
-                <p class="corner-notes-empty">Select a session to view and edit corner notes</p>
+                </div>
             </div>
         </div>
     </div>
