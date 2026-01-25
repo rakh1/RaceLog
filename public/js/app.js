@@ -1272,6 +1272,12 @@ async function loadSessionNotesDetails() {
 
         // Load cars dropdown
         await loadSessionNotesCars();
+
+        // Setup form event listener for session car setup
+        const sessionSetupForm = document.getElementById('session-setup-form');
+        if (sessionSetupForm) {
+            sessionSetupForm.addEventListener('submit', saveSessionSetup);
+        }
     } catch (error) {
         console.error('Error loading track:', error);
         alert('Track not found');
@@ -1300,14 +1306,16 @@ async function onSessionNotesCarChange() {
     const carId = select ? select.value : '';
     const track = window.currentTrack;
 
-    // Hide session selector and corner notes if no car selected
+    // Hide session selector, session setup, and corner notes if no car selected
     const sessionContainer = document.getElementById('session-selector-container');
     const cornerNotesSection = document.getElementById('corner-notes-section');
+    const sessionSetupSection = document.getElementById('session-setup-section');
     const sessionInfo = document.getElementById('session-info');
 
     if (!carId || !track) {
         if (sessionContainer) sessionContainer.style.display = 'none';
         if (cornerNotesSection) cornerNotesSection.style.display = 'none';
+        if (sessionSetupSection) sessionSetupSection.style.display = 'none';
         window.currentSession = null;
         return;
     }
@@ -1319,6 +1327,7 @@ async function onSessionNotesCarChange() {
     if (sessionContainer) sessionContainer.style.display = 'block';
     if (sessionInfo) sessionInfo.style.display = 'none';
     if (cornerNotesSection) cornerNotesSection.style.display = 'none';
+    if (sessionSetupSection) sessionSetupSection.style.display = 'none';
 
     await loadSessions(track.id, carId);
 }
@@ -1352,10 +1361,12 @@ async function onSessionChange() {
 
     const sessionInfo = document.getElementById('session-info');
     const cornerNotesSection = document.getElementById('corner-notes-section');
+    const sessionSetupSection = document.getElementById('session-setup-section');
 
     if (!sessionId) {
         if (sessionInfo) sessionInfo.style.display = 'none';
         if (cornerNotesSection) cornerNotesSection.style.display = 'none';
+        if (sessionSetupSection) sessionSetupSection.style.display = 'none';
         window.currentSession = null;
         return;
     }
@@ -1378,6 +1389,12 @@ async function onSessionChange() {
             if (conditionsSpan) conditionsSpan.textContent = session.trackConditions ? `(${session.trackConditions})` : '';
 
             sessionInfo.style.display = 'flex';
+        }
+
+        // Show and load session setup
+        if (sessionSetupSection) {
+            sessionSetupSection.style.display = 'block';
+            loadSessionSetup(session);
         }
 
         // Show and load corner notes
@@ -1499,6 +1516,151 @@ async function deleteCurrentSession() {
     } catch (error) {
         console.error('Error deleting session:', error);
         alert('Error deleting session');
+    }
+}
+
+function loadSessionSetup(session) {
+    const form = document.getElementById('session-setup-form');
+    if (!form) return;
+
+    // Populate tyre pressures
+    form.sessionTpFL.value = session.tyrePressures?.fl || '';
+    form.sessionTpFR.value = session.tyrePressures?.fr || '';
+    form.sessionTpRL.value = session.tyrePressures?.rl || '';
+    form.sessionTpRR.value = session.tyrePressures?.rr || '';
+
+    // Populate ARB and brake bias
+    form.sessionFrontARB.value = session.frontARB || '';
+    form.sessionRearARB.value = session.rearARB || '';
+    form.sessionBrakeBias.value = session.brakeBias || '';
+
+    // Populate comments
+    form.sessionSetupComments.value = session.setupComments || '';
+}
+
+async function saveSessionSetup(event) {
+    event.preventDefault();
+    const session = window.currentSession;
+    if (!session) {
+        alert('No session selected');
+        return;
+    }
+
+    const form = event.target;
+    const statusEl = document.getElementById('session-setup-status');
+
+    if (statusEl) {
+        statusEl.textContent = 'Saving...';
+        statusEl.className = 'save-status';
+    }
+
+    const setupData = {
+        tyrePressures: {
+            fl: parseFloat(form.sessionTpFL.value) || null,
+            fr: parseFloat(form.sessionTpFR.value) || null,
+            rl: parseFloat(form.sessionTpRL.value) || null,
+            rr: parseFloat(form.sessionTpRR.value) || null
+        },
+        frontARB: form.sessionFrontARB.value,
+        rearARB: form.sessionRearARB.value,
+        brakeBias: form.sessionBrakeBias.value,
+        setupComments: form.sessionSetupComments.value
+    };
+
+    try {
+        const updatedSession = await api.put(`/api/sessions/${session.id}`, setupData);
+        window.currentSession = updatedSession;
+
+        if (statusEl) {
+            statusEl.textContent = 'Saved';
+            statusEl.className = 'save-status saved';
+            setTimeout(() => {
+                statusEl.textContent = '';
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Error saving session setup:', error);
+        if (statusEl) {
+            statusEl.textContent = 'Error saving';
+            statusEl.className = 'save-status';
+        }
+    }
+}
+
+async function showImportSetupModal() {
+    const carId = window.currentCarId;
+    if (!carId) {
+        alert('No car selected');
+        return;
+    }
+
+    const select = document.getElementById('importSetupSelect');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Loading setups...</option>';
+    openModal('import-setup-modal');
+
+    try {
+        const setups = await api.get(`/api/setups?carId=${carId}`);
+
+        if (setups.length === 0) {
+            select.innerHTML = '<option value="">No setups found for this car</option>';
+            return;
+        }
+
+        select.innerHTML = '<option value="">Select a setup...</option>' +
+            setups.map(setup => {
+                const label = setup.name + (setup.trackId ? '' : ' (General)');
+                return `<option value="${setup.id}">${escapeHtml(label)}</option>`;
+            }).join('');
+
+        // Store setups for later use
+        window.availableSetups = setups;
+    } catch (error) {
+        console.error('Error loading setups:', error);
+        select.innerHTML = '<option value="">Error loading setups</option>';
+    }
+}
+
+async function importSelectedSetup() {
+    const select = document.getElementById('importSetupSelect');
+    const setupId = select ? select.value : '';
+
+    if (!setupId) {
+        alert('Please select a setup to import');
+        return;
+    }
+
+    const setup = window.availableSetups?.find(s => s.id === setupId);
+    if (!setup) {
+        alert('Setup not found');
+        return;
+    }
+
+    const form = document.getElementById('session-setup-form');
+    if (!form) return;
+
+    // Populate tyre pressures
+    form.sessionTpFL.value = setup.tyrePressures?.fl || '';
+    form.sessionTpFR.value = setup.tyrePressures?.fr || '';
+    form.sessionTpRL.value = setup.tyrePressures?.rl || '';
+    form.sessionTpRR.value = setup.tyrePressures?.rr || '';
+
+    // Populate ARB values
+    form.sessionFrontARB.value = setup.antiRollBarFront || '';
+    form.sessionRearARB.value = setup.antiRollBarRear || '';
+    // Note: Brake bias and comments are not imported - they're session-specific
+
+    closeModal('import-setup-modal');
+
+    // Show status
+    const statusEl = document.getElementById('session-setup-status');
+    if (statusEl) {
+        statusEl.textContent = 'Imported - click Save to keep changes';
+        statusEl.className = 'save-status';
+        setTimeout(() => {
+            statusEl.textContent = '';
+        }, 3000);
     }
 }
 

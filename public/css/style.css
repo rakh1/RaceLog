@@ -255,6 +255,23 @@ select.form-control {
     margin-bottom: 0;
 }
 
+/* Form Actions */
+.form-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.form-actions .save-status {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.form-actions .save-status.saved {
+    color: var(--success-color);
+}
+
 /* Corner Weights / Pressures Grid */
 .grid-2x2 {
     display: grid;

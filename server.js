@@ -588,7 +588,12 @@ app.post('/api/sessions', requireAuth, (req, res) => {
         trackId: req.body.trackId || null,
         type: req.body.type || '',
         date: req.body.date || new Date().toISOString().split('T')[0],
-        trackConditions: req.body.trackConditions || ''
+        trackConditions: req.body.trackConditions || '',
+        tyrePressures: req.body.tyrePressures || null,
+        frontARB: req.body.frontARB || '',
+        rearARB: req.body.rearARB || '',
+        brakeBias: req.body.brakeBias || '',
+        setupComments: req.body.setupComments || ''
     };
     sessions.push(newSession);
     writeJsonFile('sessions.json', sessions);
@@ -606,7 +611,12 @@ app.put('/api/sessions/:id', requireAuth, (req, res) => {
         ...sessions[index],
         type: req.body.type ?? sessions[index].type,
         date: req.body.date ?? sessions[index].date,
-        trackConditions: req.body.trackConditions ?? sessions[index].trackConditions
+        trackConditions: req.body.trackConditions ?? sessions[index].trackConditions,
+        tyrePressures: req.body.tyrePressures ?? sessions[index].tyrePressures,
+        frontARB: req.body.frontARB ?? sessions[index].frontARB,
+        rearARB: req.body.rearARB ?? sessions[index].rearARB,
+        brakeBias: req.body.brakeBias ?? sessions[index].brakeBias,
+        setupComments: req.body.setupComments ?? sessions[index].setupComments
     };
     writeJsonFile('sessions.json', sessions);
     res.json(sessions[index]);
