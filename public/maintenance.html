@@ -38,6 +38,36 @@
             <button class="btn btn-primary" onclick="showAddMaintenanceModal()">Add Maintenance</button>
         </div>
 
+        <!-- Filter Section -->
+        <div class="filter-section" id="filter-section">
+            <div class="filter-header" onclick="toggleFilter()">
+                <span>Filter by Type</span>
+                <span class="filter-toggle" id="filter-toggle">▼</span>
+            </div>
+            <div class="filter-content" id="filter-content" style="display: none;">
+                <div class="checkbox-grid" id="filterTypes">
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Oil Change" onchange="applyFilter()"> Oil Change</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Oil Filter" onchange="applyFilter()"> Oil Filter</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Gearbox Oil" onchange="applyFilter()"> Gearbox Oil</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Brake Pads Front" onchange="applyFilter()"> Brake Pads Front</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Brake Pads Rear" onchange="applyFilter()"> Brake Pads Rear</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Brake Fluid" onchange="applyFilter()"> Brake Fluid</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Coolant" onchange="applyFilter()"> Coolant</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Spark Plugs" onchange="applyFilter()"> Spark Plugs</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Air Filter" onchange="applyFilter()"> Air Filter</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Front Hubs Grease" onchange="applyFilter()"> Front Hubs Grease</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Diff Oil" onchange="applyFilter()"> Diff Oil</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Prop Shaft Grease" onchange="applyFilter()"> Prop Shaft Grease</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Upgrade" onchange="applyFilter()"> Upgrade</label>
+                    <label class="checkbox-label"><input type="checkbox" name="filterType" value="Other" onchange="applyFilter()"> Other</label>
+                </div>
+                <div class="filter-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="clearFilter()">Clear Filter</button>
+                    <span class="filter-status" id="filter-status"></span>
+                </div>
+            </div>
+        </div>
+
         <div class="list" id="maintenance-list">
             <p class="text-center text-muted">Loading...</p>
         </div>
@@ -63,26 +93,23 @@
                         </div>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="maintenanceType">Type</label>
-                            <select class="form-control" id="maintenanceType" name="maintenanceType">
-                                <option value="">Select type...</option>
-                                <option value="Oil Change">Oil Change</option>
-                                <option value="Brakes">Brakes</option>
-                                <option value="Tires">Tires</option>
-                                <option value="Engine">Engine</option>
-                                <option value="Transmission">Transmission</option>
-                                <option value="Suspension">Suspension</option>
-                                <option value="Electrical">Electrical</option>
-                                <option value="Bodywork">Bodywork</option>
-                                <option value="Inspection">Inspection</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="maintenanceCost">Cost</label>
-                            <input type="number" step="0.01" class="form-control" id="maintenanceCost" name="maintenanceCost" placeholder="0.00">
+                    <div class="form-group">
+                        <label>Type (select all that apply)</label>
+                        <div class="checkbox-grid" id="maintenanceTypes">
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Oil Change"> Oil Change</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Oil Filter"> Oil Filter</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Gearbox Oil"> Gearbox Oil</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Brake Pads Front"> Brake Pads Front</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Brake Pads Rear"> Brake Pads Rear</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Brake Fluid"> Brake Fluid</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Coolant"> Coolant</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Spark Plugs"> Spark Plugs</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Air Filter"> Air Filter</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Front Hubs Grease"> Front Hubs Grease</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Diff Oil"> Diff Oil</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Prop Shaft Grease"> Prop Shaft Grease</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Upgrade"> Upgrade</label>
+                            <label class="checkbox-label"><input type="checkbox" name="maintenanceType" value="Other"> Other</label>
                         </div>
                     </div>
 

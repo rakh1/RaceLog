@@ -601,6 +601,9 @@ async function loadMaintenanceDetails() {
     }
 }
 
+// Store maintenance data for filtering
+window.maintenanceData = [];
+
 async function loadMaintenance(carId) {
     const maintenanceContainer = document.getElementById('maintenance-list');
     if (!maintenanceContainer) return;
@@ -608,39 +611,100 @@ async function loadMaintenance(carId) {
     try {
         const maintenance = await api.get(`/api/maintenance?carId=${carId}`);
 
-        if (maintenance.length === 0) {
-            maintenanceContainer.innerHTML = `
-                <div class="empty-state">
-                    <h3>No maintenance records yet</h3>
-                    <p>Add your first maintenance record for this car</p>
-                </div>
-            `;
-            return;
-        }
-
         // Sort by date descending (most recent first)
         maintenance.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        maintenanceContainer.innerHTML = maintenance.map(task => {
-            const costDisplay = task.cost ? `$${parseFloat(task.cost).toFixed(2)}` : '';
-            return `
-                <div class="list-item">
-                    <div class="list-item-content">
-                        <h3>${escapeHtml(task.name)}</h3>
-                        <p>${formatDate(task.date)}${task.type ? ' - ' + escapeHtml(task.type) : ''}${costDisplay ? ' - ' + costDisplay : ''}</p>
-                    </div>
-                    <div class="list-item-actions">
-                        <button class="btn btn-primary btn-sm" onclick="viewMaintenance('${task.id}')">View</button>
-                        <button class="btn btn-secondary btn-sm" onclick="editMaintenance('${task.id}')">Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteMaintenance('${task.id}')">Delete</button>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        // Store for filtering
+        window.maintenanceData = maintenance;
+        window.currentCarIdForMaintenance = carId;
+
+        renderMaintenance(maintenance);
     } catch (error) {
         console.error('Error loading maintenance:', error);
         maintenanceContainer.innerHTML = '<p class="text-center text-muted">Error loading maintenance records</p>';
     }
+}
+
+function renderMaintenance(maintenance) {
+    const maintenanceContainer = document.getElementById('maintenance-list');
+    if (!maintenanceContainer) return;
+
+    if (maintenance.length === 0) {
+        const isFiltered = getSelectedFilterTypes().length > 0;
+        maintenanceContainer.innerHTML = `
+            <div class="empty-state">
+                <h3>${isFiltered ? 'No matching records' : 'No maintenance records yet'}</h3>
+                <p>${isFiltered ? 'Try adjusting your filter' : 'Add your first maintenance record for this car'}</p>
+            </div>
+        `;
+        return;
+    }
+
+    maintenanceContainer.innerHTML = maintenance.map(task => {
+        // Handle both array and string types for backwards compatibility
+        const types = Array.isArray(task.type) ? task.type : (task.type ? [task.type] : []);
+        const typeDisplay = types.length > 0 ? types.join(', ') : '';
+        return `
+            <div class="list-item">
+                <div class="list-item-content">
+                    <h3>${escapeHtml(task.name)}</h3>
+                    <p>${formatDate(task.date)}${typeDisplay ? ' - ' + escapeHtml(typeDisplay) : ''}</p>
+                </div>
+                <div class="list-item-actions">
+                    <button class="btn btn-primary btn-sm" onclick="viewMaintenance('${task.id}')">View</button>
+                    <button class="btn btn-secondary btn-sm" onclick="editMaintenance('${task.id}')">Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteMaintenance('${task.id}')">Delete</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function toggleFilter() {
+    const content = document.getElementById('filter-content');
+    const toggle = document.getElementById('filter-toggle');
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        toggle.classList.add('open');
+    } else {
+        content.style.display = 'none';
+        toggle.classList.remove('open');
+    }
+}
+
+function getSelectedFilterTypes() {
+    const checkboxes = document.querySelectorAll('input[name="filterType"]:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+function applyFilter() {
+    const selectedTypes = getSelectedFilterTypes();
+    const statusEl = document.getElementById('filter-status');
+
+    if (selectedTypes.length === 0) {
+        // No filter - show all
+        renderMaintenance(window.maintenanceData);
+        if (statusEl) statusEl.textContent = '';
+        return;
+    }
+
+    // Filter maintenance records that have at least one matching type
+    const filtered = window.maintenanceData.filter(task => {
+        const taskTypes = Array.isArray(task.type) ? task.type : (task.type ? [task.type] : []);
+        return taskTypes.some(t => selectedTypes.includes(t));
+    });
+
+    renderMaintenance(filtered);
+
+    if (statusEl) {
+        statusEl.textContent = `Showing ${filtered.length} of ${window.maintenanceData.length} records`;
+    }
+}
+
+function clearFilter() {
+    const checkboxes = document.querySelectorAll('input[name="filterType"]');
+    checkboxes.forEach(cb => cb.checked = false);
+    applyFilter();
 }
 
 function showAddMaintenanceModal() {
@@ -648,6 +712,10 @@ function showAddMaintenanceModal() {
     form.reset();
     delete form.dataset.maintenanceId;
     document.getElementById('maintenance-modal-title').textContent = 'Add Maintenance';
+
+    // Clear all checkboxes
+    const checkboxes = form.querySelectorAll('input[name="maintenanceType"]');
+    checkboxes.forEach(cb => cb.checked = false);
 
     // Set today's date
     form.maintenanceDate.value = new Date().toISOString().split('T')[0];
@@ -661,13 +729,17 @@ async function saveMaintenance(event) {
     const id = form.dataset.maintenanceId;
     const carId = getUrlParam('id');
 
+    // Collect all checked maintenance types
+    const checkedTypes = [];
+    const checkboxes = form.querySelectorAll('input[name="maintenanceType"]:checked');
+    checkboxes.forEach(cb => checkedTypes.push(cb.value));
+
     const maintenanceData = {
         carId: carId,
         date: form.maintenanceDate.value,
-        type: form.maintenanceType.value,
+        type: checkedTypes,
         name: form.maintenanceName.value,
         description: form.maintenanceDescription.value,
-        cost: parseFloat(form.maintenanceCost.value) || 0,
         mileage: form.maintenanceMileage.value,
         partsUsed: form.maintenancePartsUsed.value,
         notes: form.maintenanceNotes.value
@@ -696,12 +768,21 @@ async function editMaintenance(id) {
 
         form.maintenanceName.value = task.name || '';
         form.maintenanceDate.value = task.date || '';
-        form.maintenanceType.value = task.type || '';
-        form.maintenanceCost.value = task.cost || '';
         form.maintenanceMileage.value = task.mileage || '';
         form.maintenanceDescription.value = task.description || '';
         form.maintenancePartsUsed.value = task.partsUsed || '';
         form.maintenanceNotes.value = task.notes || '';
+
+        // Clear all checkboxes first
+        const checkboxes = form.querySelectorAll('input[name="maintenanceType"]');
+        checkboxes.forEach(cb => cb.checked = false);
+
+        // Check the appropriate boxes based on stored types
+        const types = Array.isArray(task.type) ? task.type : (task.type ? [task.type] : []);
+        types.forEach(type => {
+            const checkbox = form.querySelector(`input[name="maintenanceType"][value="${type}"]`);
+            if (checkbox) checkbox.checked = true;
+        });
 
         form.dataset.maintenanceId = id;
         document.getElementById('maintenance-modal-title').textContent = 'Edit Maintenance';
@@ -716,6 +797,10 @@ async function viewMaintenance(id) {
     try {
         const task = await api.get(`/api/maintenance/${id}`);
 
+        // Handle both array and string types for backwards compatibility
+        const types = Array.isArray(task.type) ? task.type : (task.type ? [task.type] : []);
+        const typeDisplay = types.length > 0 ? types.join(', ') : '-';
+
         const detailsHtml = `
             <div class="setup-details">
                 <div class="detail-group">
@@ -726,11 +811,7 @@ async function viewMaintenance(id) {
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Type</span>
-                        <span class="detail-value">${escapeHtml(task.type) || '-'}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Cost</span>
-                        <span class="detail-value">${task.cost ? '$' + parseFloat(task.cost).toFixed(2) : '-'}</span>
+                        <span class="detail-value">${escapeHtml(typeDisplay)}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Mileage / Hours</span>
