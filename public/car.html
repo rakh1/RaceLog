@@ -69,24 +69,42 @@
                     </div>
 
                     <h3 class="section-title">Alignment</h3>
-                    <div class="form-row">
+                    <p class="text-muted mb-2">Toe</p>
+                    <div class="grid-2x2 mb-3">
                         <div class="form-group">
-                            <label for="toeFront">Toe Front</label>
-                            <input type="text" class="form-control" id="toeFront" name="toeFront" placeholder="e.g., -0.5mm">
+                            <label for="toeFL">Front Left</label>
+                            <input type="text" class="form-control" id="toeFL" name="toeFL" placeholder="e.g., -0.5mm">
                         </div>
                         <div class="form-group">
-                            <label for="toeRear">Toe Rear</label>
-                            <input type="text" class="form-control" id="toeRear" name="toeRear" placeholder="e.g., +1.0mm">
+                            <label for="toeFR">Front Right</label>
+                            <input type="text" class="form-control" id="toeFR" name="toeFR" placeholder="e.g., -0.5mm">
+                        </div>
+                        <div class="form-group">
+                            <label for="toeRL">Rear Left</label>
+                            <input type="text" class="form-control" id="toeRL" name="toeRL" placeholder="e.g., +1.0mm">
+                        </div>
+                        <div class="form-group">
+                            <label for="toeRR">Rear Right</label>
+                            <input type="text" class="form-control" id="toeRR" name="toeRR" placeholder="e.g., +1.0mm">
                         </div>
                     </div>
-                    <div class="form-row">
+                    <p class="text-muted mb-2">Camber</p>
+                    <div class="grid-2x2 mb-3">
                         <div class="form-group">
-                            <label for="camberFront">Camber Front</label>
-                            <input type="text" class="form-control" id="camberFront" name="camberFront" placeholder="e.g., -3.5deg">
+                            <label for="camberFL">Front Left</label>
+                            <input type="text" class="form-control" id="camberFL" name="camberFL" placeholder="e.g., -3.5deg">
                         </div>
                         <div class="form-group">
-                            <label for="camberRear">Camber Rear</label>
-                            <input type="text" class="form-control" id="camberRear" name="camberRear" placeholder="e.g., -2.0deg">
+                            <label for="camberFR">Front Right</label>
+                            <input type="text" class="form-control" id="camberFR" name="camberFR" placeholder="e.g., -3.5deg">
+                        </div>
+                        <div class="form-group">
+                            <label for="camberRL">Rear Left</label>
+                            <input type="text" class="form-control" id="camberRL" name="camberRL" placeholder="e.g., -2.0deg">
+                        </div>
+                        <div class="form-group">
+                            <label for="camberRR">Rear Right</label>
+                            <input type="text" class="form-control" id="camberRR" name="camberRR" placeholder="e.g., -2.0deg">
                         </div>
                     </div>
                     <div class="form-group">
@@ -95,6 +113,16 @@
                     </div>
 
                     <h3 class="section-title">Corner Weights</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="driverWeight">Driver Weight</label>
+                            <input type="text" class="form-control" id="driverWeight" name="driverWeight" placeholder="e.g., 75kg">
+                        </div>
+                        <div class="form-group">
+                            <label for="ballast">Ballast</label>
+                            <input type="text" class="form-control" id="ballast" name="ballast" placeholder="e.g., 10kg front">
+                        </div>
+                    </div>
                     <div class="grid-2x2 mb-3">
                         <div class="form-group">
                             <label for="cwFL">Front Left</label>
@@ -113,20 +141,35 @@
                             <input type="number" step="0.1" class="form-control" id="cwRR" name="cwRR" placeholder="0">
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label for="totalWeight">Total Weight</label>
-                        <input type="number" step="0.1" class="form-control" id="totalWeight" name="totalWeight" placeholder="0" style="max-width: 200px;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="crossWeight">Cross Weight</label>
+                            <input type="text" class="form-control" id="crossWeight" name="crossWeight" placeholder="e.g., 50.5%">
+                        </div>
+                        <div class="form-group">
+                            <label for="totalWeight">Total Weight</label>
+                            <input type="number" step="0.1" class="form-control" id="totalWeight" name="totalWeight" placeholder="0">
+                        </div>
                     </div>
 
                     <h3 class="section-title">Suspension</h3>
-                    <div class="form-row">
+                    <p class="text-muted mb-2">Ride Height</p>
+                    <div class="grid-2x2 mb-3">
                         <div class="form-group">
-                            <label for="rideHeightFront">Ride Height Front</label>
-                            <input type="text" class="form-control" id="rideHeightFront" name="rideHeightFront" placeholder="e.g., 50mm">
+                            <label for="rhFL">Front Left</label>
+                            <input type="text" class="form-control" id="rhFL" name="rhFL" placeholder="e.g., 50mm">
                         </div>
                         <div class="form-group">
-                            <label for="rideHeightRear">Ride Height Rear</label>
-                            <input type="text" class="form-control" id="rideHeightRear" name="rideHeightRear" placeholder="e.g., 55mm">
+                            <label for="rhFR">Front Right</label>
+                            <input type="text" class="form-control" id="rhFR" name="rhFR" placeholder="e.g., 50mm">
+                        </div>
+                        <div class="form-group">
+                            <label for="rhRL">Rear Left</label>
+                            <input type="text" class="form-control" id="rhRL" name="rhRL" placeholder="e.g., 55mm">
+                        </div>
+                        <div class="form-group">
+                            <label for="rhRR">Rear Right</label>
+                            <input type="text" class="form-control" id="rhRR" name="rhRR" placeholder="e.g., 55mm">
                         </div>
                     </div>
                     <div class="form-row">

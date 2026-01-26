@@ -275,6 +275,9 @@ async function loadSetups(carId) {
         const tracksMap = {};
         tracks.forEach(t => tracksMap[t.id] = t);
 
+        // Sort by date descending (most recent first)
+        setups.sort((a, b) => new Date(b.date) - new Date(a.date));
+
         if (setups.length === 0) {
             setupsContainer.innerHTML = `
                 <div class="empty-state">
@@ -307,6 +310,38 @@ async function loadSetups(carId) {
     }
 }
 
+function calculateCornerWeights() {
+    const form = document.getElementById('setup-form');
+    if (!form) return;
+
+    const fl = parseFloat(form.cwFL.value) || 0;
+    const fr = parseFloat(form.cwFR.value) || 0;
+    const rl = parseFloat(form.cwRL.value) || 0;
+    const rr = parseFloat(form.cwRR.value) || 0;
+
+    const total = fl + fr + rl + rr;
+    if (total > 0) {
+        form.totalWeight.value = total;
+
+        // Cross weight % = (FL + RR) / Total * 100
+        const crossWeight = ((fl + rr) / total) * 100;
+        form.crossWeight.value = crossWeight.toFixed(1) + '%';
+    }
+}
+
+function setupCornerWeightListeners() {
+    const form = document.getElementById('setup-form');
+    if (!form) return;
+
+    ['cwFL', 'cwFR', 'cwRL', 'cwRR'].forEach(id => {
+        const input = form[id];
+        if (input) {
+            input.removeEventListener('input', calculateCornerWeights);
+            input.addEventListener('input', calculateCornerWeights);
+        }
+    });
+}
+
 async function showAddSetupModal() {
     const form = document.getElementById('setup-form');
     form.reset();
@@ -318,6 +353,9 @@ async function showAddSetupModal() {
 
     // Set today's date
     form.setupDate.value = new Date().toISOString().split('T')[0];
+
+    // Setup corner weight auto-calculation
+    setupCornerWeightListeners();
 
     openModal('setup-modal');
 }
@@ -346,20 +384,35 @@ async function saveSetup(event) {
         trackId: form.setupTrack.value || null,
         name: form.setupName.value,
         date: form.setupDate.value,
-        toeFront: form.toeFront.value,
-        toeRear: form.toeRear.value,
-        camberFront: form.camberFront.value,
-        camberRear: form.camberRear.value,
+        toe: {
+            fl: form.toeFL.value,
+            fr: form.toeFR.value,
+            rl: form.toeRL.value,
+            rr: form.toeRR.value
+        },
+        camber: {
+            fl: form.camberFL.value,
+            fr: form.camberFR.value,
+            rl: form.camberRL.value,
+            rr: form.camberRR.value
+        },
         casterFront: form.casterFront.value,
+        driverWeight: form.driverWeight.value,
+        ballast: form.ballast.value,
         cornerWeights: {
             fl: parseFloat(form.cwFL.value) || 0,
             fr: parseFloat(form.cwFR.value) || 0,
             rl: parseFloat(form.cwRL.value) || 0,
             rr: parseFloat(form.cwRR.value) || 0
         },
+        crossWeight: form.crossWeight.value,
         totalWeight: parseFloat(form.totalWeight.value) || 0,
-        rideHeightFront: form.rideHeightFront.value,
-        rideHeightRear: form.rideHeightRear.value,
+        rideHeight: {
+            fl: form.rhFL.value,
+            fr: form.rhFR.value,
+            rl: form.rhRL.value,
+            rr: form.rhRR.value
+        },
         antiRollBarFront: form.antiRollBarFront.value,
         antiRollBarRear: form.antiRollBarRear.value,
         tyrePressures: {
@@ -399,18 +452,27 @@ async function editSetup(id) {
         form.setupTrack.value = setup.trackId || '';
         form.setupName.value = setup.name;
         form.setupDate.value = setup.date;
-        form.toeFront.value = setup.toeFront || '';
-        form.toeRear.value = setup.toeRear || '';
-        form.camberFront.value = setup.camberFront || '';
-        form.camberRear.value = setup.camberRear || '';
+        form.toeFL.value = setup.toe?.fl || setup.toeFront || '';
+        form.toeFR.value = setup.toe?.fr || setup.toeFront || '';
+        form.toeRL.value = setup.toe?.rl || setup.toeRear || '';
+        form.toeRR.value = setup.toe?.rr || setup.toeRear || '';
+        form.camberFL.value = setup.camber?.fl || setup.camberFront || '';
+        form.camberFR.value = setup.camber?.fr || setup.camberFront || '';
+        form.camberRL.value = setup.camber?.rl || setup.camberRear || '';
+        form.camberRR.value = setup.camber?.rr || setup.camberRear || '';
         form.casterFront.value = setup.casterFront || '';
+        form.driverWeight.value = setup.driverWeight || '';
+        form.ballast.value = setup.ballast || '';
         form.cwFL.value = setup.cornerWeights?.fl || '';
         form.cwFR.value = setup.cornerWeights?.fr || '';
         form.cwRL.value = setup.cornerWeights?.rl || '';
         form.cwRR.value = setup.cornerWeights?.rr || '';
+        form.crossWeight.value = setup.crossWeight || '';
         form.totalWeight.value = setup.totalWeight || '';
-        form.rideHeightFront.value = setup.rideHeightFront || '';
-        form.rideHeightRear.value = setup.rideHeightRear || '';
+        form.rhFL.value = setup.rideHeight?.fl || setup.rideHeightFront || '';
+        form.rhFR.value = setup.rideHeight?.fr || setup.rideHeightFront || '';
+        form.rhRL.value = setup.rideHeight?.rl || setup.rideHeightRear || '';
+        form.rhRR.value = setup.rideHeight?.rr || setup.rideHeightRear || '';
         form.antiRollBarFront.value = setup.antiRollBarFront || '';
         form.antiRollBarRear.value = setup.antiRollBarRear || '';
         form.tpFL.value = setup.tyrePressures?.fl || '';
@@ -423,6 +485,10 @@ async function editSetup(id) {
 
         form.dataset.setupId = id;
         document.getElementById('setup-modal-title').textContent = 'Edit Setup';
+
+        // Setup corner weight auto-calculation
+        setupCornerWeightListeners();
+
         openModal('setup-modal');
     } catch (error) {
         console.error('Error loading setup:', error);
@@ -459,22 +525,42 @@ async function viewSetup(id) {
                 </div>
 
                 <div class="detail-group">
-                    <h4>Alignment</h4>
+                    <h4>Alignment - Toe</h4>
                     <div class="detail-row">
-                        <span class="detail-label">Toe Front</span>
-                        <span class="detail-value">${escapeHtml(setup.toeFront) || '-'}</span>
+                        <span class="detail-label">Front Left</span>
+                        <span class="detail-value">${escapeHtml(setup.toe?.fl) || escapeHtml(setup.toeFront) || '-'}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Toe Rear</span>
-                        <span class="detail-value">${escapeHtml(setup.toeRear) || '-'}</span>
+                        <span class="detail-label">Front Right</span>
+                        <span class="detail-value">${escapeHtml(setup.toe?.fr) || escapeHtml(setup.toeFront) || '-'}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Camber Front</span>
-                        <span class="detail-value">${escapeHtml(setup.camberFront) || '-'}</span>
+                        <span class="detail-label">Rear Left</span>
+                        <span class="detail-value">${escapeHtml(setup.toe?.rl) || escapeHtml(setup.toeRear) || '-'}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Camber Rear</span>
-                        <span class="detail-value">${escapeHtml(setup.camberRear) || '-'}</span>
+                        <span class="detail-label">Rear Right</span>
+                        <span class="detail-value">${escapeHtml(setup.toe?.rr) || escapeHtml(setup.toeRear) || '-'}</span>
+                    </div>
+                </div>
+
+                <div class="detail-group">
+                    <h4>Alignment - Camber</h4>
+                    <div class="detail-row">
+                        <span class="detail-label">Front Left</span>
+                        <span class="detail-value">${escapeHtml(setup.camber?.fl) || escapeHtml(setup.camberFront) || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Front Right</span>
+                        <span class="detail-value">${escapeHtml(setup.camber?.fr) || escapeHtml(setup.camberFront) || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Rear Left</span>
+                        <span class="detail-value">${escapeHtml(setup.camber?.rl) || escapeHtml(setup.camberRear) || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Rear Right</span>
+                        <span class="detail-value">${escapeHtml(setup.camber?.rr) || escapeHtml(setup.camberRear) || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Caster Front</span>
@@ -484,6 +570,14 @@ async function viewSetup(id) {
 
                 <div class="detail-group">
                     <h4>Corner Weights</h4>
+                    <div class="detail-row">
+                        <span class="detail-label">Driver Weight</span>
+                        <span class="detail-value">${escapeHtml(setup.driverWeight) || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Ballast</span>
+                        <span class="detail-value">${escapeHtml(setup.ballast) || '-'}</span>
+                    </div>
                     <div class="detail-row">
                         <span class="detail-label">Front Left</span>
                         <span class="detail-value">${setup.cornerWeights?.fl || '-'}</span>
@@ -501,6 +595,10 @@ async function viewSetup(id) {
                         <span class="detail-value">${setup.cornerWeights?.rr || '-'}</span>
                     </div>
                     <div class="detail-row">
+                        <span class="detail-label">Cross Weight</span>
+                        <span class="detail-value">${escapeHtml(setup.crossWeight) || '-'}</span>
+                    </div>
+                    <div class="detail-row">
                         <span class="detail-label">Total Weight</span>
                         <span class="detail-value">${setup.totalWeight || '-'}</span>
                     </div>
@@ -509,12 +607,20 @@ async function viewSetup(id) {
                 <div class="detail-group">
                     <h4>Suspension</h4>
                     <div class="detail-row">
-                        <span class="detail-label">Ride Height Front</span>
-                        <span class="detail-value">${escapeHtml(setup.rideHeightFront) || '-'}</span>
+                        <span class="detail-label">Ride Height FL</span>
+                        <span class="detail-value">${escapeHtml(setup.rideHeight?.fl) || escapeHtml(setup.rideHeightFront) || '-'}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Ride Height Rear</span>
-                        <span class="detail-value">${escapeHtml(setup.rideHeightRear) || '-'}</span>
+                        <span class="detail-label">Ride Height FR</span>
+                        <span class="detail-value">${escapeHtml(setup.rideHeight?.fr) || escapeHtml(setup.rideHeightFront) || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Ride Height RL</span>
+                        <span class="detail-value">${escapeHtml(setup.rideHeight?.rl) || escapeHtml(setup.rideHeightRear) || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Ride Height RR</span>
+                        <span class="detail-value">${escapeHtml(setup.rideHeight?.rr) || escapeHtml(setup.rideHeightRear) || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Anti-Roll Bar Front</span>
