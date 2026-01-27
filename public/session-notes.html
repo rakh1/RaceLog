@@ -68,20 +68,19 @@
                             <option value="">Select a session...</option>
                         </select>
                         <button class="btn btn-primary btn-sm" onclick="showAddSessionModal()">Add Session</button>
-                    </div>
-                    <div id="session-info" class="session-info" style="display: none;">
-                        <span id="session-type-badge" class="badge"></span>
-                        <span id="session-date"></span>
-                        <span id="session-conditions"></span>
-                        <button class="btn btn-secondary btn-sm" onclick="editCurrentSession()">Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteCurrentSession()">Delete</button>
+                        <button class="btn btn-secondary btn-sm" id="edit-session-btn" onclick="editCurrentSession()" style="display: none;">Edit</button>
+                        <button class="btn btn-danger btn-sm" id="delete-session-btn" onclick="deleteCurrentSession()" style="display: none;">Delete</button>
                     </div>
                 </div>
 
                 <!-- Session Car Setup (shown after session is selected) -->
                 <div id="session-setup-section" class="card" style="display: none; margin-bottom: 1.5rem;">
                     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <h2>Session Car Setup</h2>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <h2 style="margin: 0;">Session Car Setup</h2>
+                            <span id="session-series-display" class="text-muted"></span>
+                            <span id="session-conditions-display" class="text-muted"></span>
+                        </div>
                         <button type="button" class="btn btn-secondary btn-sm" onclick="showImportSetupModal()">Import from Car Setup</button>
                     </div>
                     <div class="card-body">
@@ -92,19 +91,19 @@
                                     <div class="grid-2x2">
                                         <div class="form-group">
                                             <label for="sessionTpFL">Front Left</label>
-                                            <input type="number" step="0.1" class="form-control" id="sessionTpFL" name="sessionTpFL" placeholder="e.g., 26">
+                                            <input type="number" step="0.1" class="form-control" id="sessionTpFL" name="sessionTpFL" placeholder="e.g., 26" onchange="autoSaveSessionSetup()">
                                         </div>
                                         <div class="form-group">
                                             <label for="sessionTpFR">Front Right</label>
-                                            <input type="number" step="0.1" class="form-control" id="sessionTpFR" name="sessionTpFR" placeholder="e.g., 26">
+                                            <input type="number" step="0.1" class="form-control" id="sessionTpFR" name="sessionTpFR" placeholder="e.g., 26" onchange="autoSaveSessionSetup()">
                                         </div>
                                         <div class="form-group">
                                             <label for="sessionTpRL">Rear Left</label>
-                                            <input type="number" step="0.1" class="form-control" id="sessionTpRL" name="sessionTpRL" placeholder="e.g., 26">
+                                            <input type="number" step="0.1" class="form-control" id="sessionTpRL" name="sessionTpRL" placeholder="e.g., 26" onchange="autoSaveSessionSetup()">
                                         </div>
                                         <div class="form-group">
                                             <label for="sessionTpRR">Rear Right</label>
-                                            <input type="number" step="0.1" class="form-control" id="sessionTpRR" name="sessionTpRR" placeholder="e.g., 26">
+                                            <input type="number" step="0.1" class="form-control" id="sessionTpRR" name="sessionTpRR" placeholder="e.g., 26" onchange="autoSaveSessionSetup()">
                                         </div>
                                     </div>
                                 </div>
@@ -112,22 +111,21 @@
                                     <h3 class="section-title">Setup</h3>
                                     <div class="form-group">
                                         <label for="sessionFrontARB">Front ARB</label>
-                                        <input type="text" class="form-control" id="sessionFrontARB" name="sessionFrontARB" placeholder="e.g., 4">
+                                        <input type="text" class="form-control" id="sessionFrontARB" name="sessionFrontARB" placeholder="e.g., 4" onchange="autoSaveSessionSetup()">
                                     </div>
                                     <div class="form-group">
                                         <label for="sessionRearARB">Rear ARB</label>
-                                        <input type="text" class="form-control" id="sessionRearARB" name="sessionRearARB" placeholder="e.g., 3">
+                                        <input type="text" class="form-control" id="sessionRearARB" name="sessionRearARB" placeholder="e.g., 3" onchange="autoSaveSessionSetup()">
                                     </div>
                                 </div>
                             </div>
 
                             <div class="form-group">
                                 <label for="sessionSetupComments">Comments</label>
-                                <textarea class="form-control" id="sessionSetupComments" name="sessionSetupComments" rows="3" placeholder="Setup notes for this session..."></textarea>
+                                <textarea class="form-control" id="sessionSetupComments" name="sessionSetupComments" rows="3" placeholder="Setup notes for this session..." onblur="autoSaveSessionSetup()"></textarea>
                             </div>
 
                             <div class="form-actions">
-                                <button type="submit" class="btn btn-primary">Save Setup</button>
                                 <span id="session-setup-status" class="save-status"></span>
                             </div>
                         </form>
@@ -143,19 +141,18 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="bestLaptime">Best Laptime</label>
-                                <input type="text" class="form-control" id="bestLaptime" name="bestLaptime" placeholder="e.g., 1:42.5">
+                                <input type="text" class="form-control" id="bestLaptime" name="bestLaptime" placeholder="e.g., 1:42.5" onchange="autoSaveFocusAreas()">
                             </div>
                             <div class="form-group">
                                 <label for="idealLaptime">Ideal Laptime</label>
-                                <input type="text" class="form-control" id="idealLaptime" name="idealLaptime" placeholder="e.g., 1:41.2">
+                                <input type="text" class="form-control" id="idealLaptime" name="idealLaptime" placeholder="e.g., 1:41.2" onchange="autoSaveFocusAreas()">
                             </div>
                         </div>
                         <div class="form-group">
                             <label for="focusAreas">Focus Areas</label>
-                            <textarea class="form-control" id="focusAreas" rows="5" placeholder="What to focus on for this session..."></textarea>
+                            <textarea class="form-control" id="focusAreas" rows="5" placeholder="What to focus on for this session..." onblur="autoSaveFocusAreas()"></textarea>
                         </div>
                         <div class="form-actions">
-                            <button type="button" class="btn btn-primary" onclick="saveFocusAreas()">Save</button>
                             <span id="focus-areas-status" class="save-status"></span>
                         </div>
                     </div>
@@ -225,6 +222,10 @@
                     <div class="form-group">
                         <label for="sessionConditions">Track Conditions</label>
                         <input type="text" class="form-control" id="sessionConditions" name="sessionConditions" placeholder="e.g., Dry, 25C, Sunny">
+                    </div>
+                    <div class="form-group">
+                        <label for="sessionSeries">Series</label>
+                        <input type="text" class="form-control" id="sessionSeries" name="sessionSeries" placeholder="e.g., CSCC, Britcar, Club Race">
                     </div>
                 </div>
                 <div class="modal-footer">

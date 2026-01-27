@@ -1,0 +1,22 @@
+[
+  {
+    "id": "snetterton-300",
+    "name": "Snetterton 300",
+    "location": "Norwich NR16 2JU",
+    "length": "4.779km",
+    "corners": [
+      "Riches",
+      "Montreal",
+      "Palmer",
+      "Agostini",
+      "Hamilton",
+      "Oggles",
+      "Williams",
+      "Brundle",
+      "Nelson",
+      "Bomb Hole",
+      "Coram",
+      "Murrays"
+    ]
+  }
+]

@@ -1238,10 +1238,10 @@ async function loadSessionNotesDetails() {
         // Load cars dropdown
         await loadSessionNotesCars();
 
-        // Setup form event listener for session car setup
+        // Prevent form submission (we use autosave now)
         const sessionSetupForm = document.getElementById('session-setup-form');
         if (sessionSetupForm) {
-            sessionSetupForm.addEventListener('submit', saveSessionSetup);
+            sessionSetupForm.addEventListener('submit', (e) => e.preventDefault());
         }
     } catch (error) {
         console.error('Error loading track:', error);
@@ -1314,8 +1314,9 @@ async function loadSessions(trackId, carId) {
             sessions.map(session => {
                 const dateStr = formatDate(session.date);
                 const displayName = session.name || session.type;
+                const series = session.series ? ` (${session.series})` : '';
                 const laptime = session.bestLaptime ? ` (${session.bestLaptime})` : '';
-                return `<option value="${session.id}">${escapeHtml(displayName)} - ${dateStr}${laptime}</option>`;
+                return `<option value="${session.id}">${escapeHtml(displayName)} - ${dateStr}${series}${laptime}</option>`;
             }).join('');
 
         window.currentSession = null;
@@ -1329,13 +1330,15 @@ async function onSessionChange() {
     const sessionId = select ? select.value : '';
     const track = window.currentTrack;
 
-    const sessionInfo = document.getElementById('session-info');
+    const editBtn = document.getElementById('edit-session-btn');
+    const deleteBtn = document.getElementById('delete-session-btn');
     const cornerNotesSection = document.getElementById('corner-notes-section');
     const sessionSetupSection = document.getElementById('session-setup-section');
     const focusAreasSection = document.getElementById('focus-areas-section');
 
     if (!sessionId) {
-        if (sessionInfo) sessionInfo.style.display = 'none';
+        if (editBtn) editBtn.style.display = 'none';
+        if (deleteBtn) deleteBtn.style.display = 'none';
         if (cornerNotesSection) cornerNotesSection.style.display = 'none';
         if (sessionSetupSection) sessionSetupSection.style.display = 'none';
         if (focusAreasSection) focusAreasSection.style.display = 'none';
@@ -1347,26 +1350,20 @@ async function onSessionChange() {
         const session = await api.get(`/api/sessions/${sessionId}`);
         window.currentSession = session;
 
-        // Display session info
-        if (sessionInfo) {
-            const typeBadge = document.getElementById('session-type-badge');
-            const dateSpan = document.getElementById('session-date');
-            const conditionsSpan = document.getElementById('session-conditions');
-
-            if (typeBadge) {
-                typeBadge.textContent = session.type;
-                typeBadge.className = 'badge badge-' + session.type.toLowerCase();
-            }
-            if (dateSpan) dateSpan.textContent = formatDate(session.date);
-            if (conditionsSpan) conditionsSpan.textContent = session.trackConditions ? `(${session.trackConditions})` : '';
-
-            sessionInfo.style.display = 'flex';
-        }
+        // Show edit and delete buttons
+        if (editBtn) editBtn.style.display = 'inline-block';
+        if (deleteBtn) deleteBtn.style.display = 'inline-block';
 
         // Show and load session setup
         if (sessionSetupSection) {
             sessionSetupSection.style.display = 'block';
             loadSessionSetup(session);
+
+            // Display series and conditions in header
+            const seriesDisplay = document.getElementById('session-series-display');
+            const conditionsDisplay = document.getElementById('session-conditions-display');
+            if (seriesDisplay) seriesDisplay.textContent = session.series ? `| ${session.series}` : '';
+            if (conditionsDisplay) conditionsDisplay.textContent = session.trackConditions ? `| ${session.trackConditions}` : '';
         }
 
         // Show and load corner notes
@@ -1428,7 +1425,8 @@ async function saveSession(event) {
         type: form.sessionType.value,
         name: form.sessionName.value || form.sessionType.value,
         date: form.sessionDate.value,
-        trackConditions: form.sessionConditions.value
+        trackConditions: form.sessionConditions.value,
+        series: form.sessionSeries.value
     };
 
     try {
@@ -1461,6 +1459,7 @@ async function editCurrentSession() {
     form.sessionName.value = session.name || '';
     form.sessionDate.value = session.date || '';
     form.sessionConditions.value = session.trackConditions || '';
+    form.sessionSeries.value = session.series || '';
     form.dataset.sessionId = session.id;
 
     document.getElementById('session-modal-title').textContent = 'Edit Session';
@@ -1484,9 +1483,12 @@ async function deleteCurrentSession() {
         const carId = window.currentCarId;
         await loadSessions(trackId, carId);
 
-        // Hide session info and corner notes
-        document.getElementById('session-info').style.display = 'none';
+        // Hide buttons and sections
+        document.getElementById('edit-session-btn').style.display = 'none';
+        document.getElementById('delete-session-btn').style.display = 'none';
         document.getElementById('corner-notes-section').style.display = 'none';
+        document.getElementById('session-setup-section').style.display = 'none';
+        document.getElementById('focus-areas-section').style.display = 'none';
     } catch (error) {
         console.error('Error deleting session:', error);
         alert('Error deleting session');
@@ -1511,15 +1513,13 @@ function loadSessionSetup(session) {
     form.sessionSetupComments.value = session.setupComments || '';
 }
 
-async function saveSessionSetup(event) {
-    event.preventDefault();
+async function autoSaveSessionSetup() {
     const session = window.currentSession;
-    if (!session) {
-        alert('No session selected');
-        return;
-    }
+    if (!session) return;
 
-    const form = event.target;
+    const form = document.getElementById('session-setup-form');
+    if (!form) return;
+
     const statusEl = document.getElementById('session-setup-status');
 
     if (statusEl) {
@@ -1575,12 +1575,9 @@ function loadFocusAreas(session) {
     }
 }
 
-async function saveFocusAreas() {
+async function autoSaveFocusAreas() {
     const session = window.currentSession;
-    if (!session) {
-        alert('No session selected');
-        return;
-    }
+    if (!session) return;
 
     const textarea = document.getElementById('focusAreas');
     const bestLaptime = document.getElementById('bestLaptime');
@@ -1598,6 +1595,14 @@ async function saveFocusAreas() {
             bestLaptime: bestLaptime ? bestLaptime.value : '',
             idealLaptime: idealLaptime ? idealLaptime.value : ''
         });
+        window.currentSession = updatedSession;
+
+        // Update session dropdown to reflect new best laptime
+        const trackId = getUrlParam('id');
+        const carId = window.currentCarId;
+        const currentSessionId = session.id;
+        await loadSessions(trackId, carId);
+        document.getElementById('sessionSelect').value = currentSessionId;
         window.currentSession = updatedSession;
 
         if (statusEl) {

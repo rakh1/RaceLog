@@ -19,6 +19,7 @@ const publicPath = isPackaged ? path.join(__dirname, 'public') : path.join(__dir
 // Data directory (always next to the executable or script, writable location)
 const DATA_DIR = path.join(basePath, 'data');
 const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
+const DEFAULT_DATA_DIR = isPackaged ? path.join(__dirname, 'default-data') : path.join(__dirname, 'default-data');
 
 // Ensure data directories exist
 if (!fs.existsSync(DATA_DIR)) {
@@ -125,6 +126,13 @@ app.use(express.static(publicPath));
 function readJsonFile(filename) {
     const filepath = path.join(DATA_DIR, filename);
     if (!fs.existsSync(filepath)) {
+        // Check for default data
+        const defaultPath = path.join(DEFAULT_DATA_DIR, filename);
+        if (fs.existsSync(defaultPath)) {
+            const defaultData = fs.readFileSync(defaultPath, 'utf8');
+            fs.writeFileSync(filepath, defaultData);
+            return JSON.parse(defaultData);
+        }
         fs.writeFileSync(filepath, '[]');
         return [];
     }
@@ -826,7 +834,8 @@ app.post('/api/sessions', requireAuth, (req, res) => {
         setupComments: req.body.setupComments || '',
         focusAreas: req.body.focusAreas || '',
         bestLaptime: req.body.bestLaptime || '',
-        idealLaptime: req.body.idealLaptime || ''
+        idealLaptime: req.body.idealLaptime || '',
+        series: req.body.series || ''
     };
     sessions.push(newSession);
     writeJsonFile('sessions.json', sessions);
@@ -853,7 +862,8 @@ app.put('/api/sessions/:id', requireAuth, (req, res) => {
         setupComments: req.body.setupComments ?? sessions[index].setupComments,
         focusAreas: req.body.focusAreas ?? sessions[index].focusAreas,
         bestLaptime: req.body.bestLaptime ?? sessions[index].bestLaptime,
-        idealLaptime: req.body.idealLaptime ?? sessions[index].idealLaptime
+        idealLaptime: req.body.idealLaptime ?? sessions[index].idealLaptime,
+        series: req.body.series ?? sessions[index].series
     };
     writeJsonFile('sessions.json', sessions);
     res.json(sessions[index]);

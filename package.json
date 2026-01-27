@@ -10,7 +10,8 @@
   },
   "pkg": {
     "assets": [
-      "public/**/*"
+      "public/**/*",
+      "default-data/**/*"
     ],
     "targets": [
       "node18-win-x64"
