@@ -1314,7 +1314,8 @@ async function loadSessions(trackId, carId) {
             sessions.map(session => {
                 const dateStr = formatDate(session.date);
                 const displayName = session.name || session.type;
-                return `<option value="${session.id}">${escapeHtml(displayName)} - ${dateStr}</option>`;
+                const laptime = session.bestLaptime ? ` (${session.bestLaptime})` : '';
+                return `<option value="${session.id}">${escapeHtml(displayName)} - ${dateStr}${laptime}</option>`;
             }).join('');
 
         window.currentSession = null;
@@ -1502,10 +1503,9 @@ function loadSessionSetup(session) {
     form.sessionTpRL.value = session.tyrePressures?.rl || '';
     form.sessionTpRR.value = session.tyrePressures?.rr || '';
 
-    // Populate ARB and brake bias
+    // Populate ARB
     form.sessionFrontARB.value = session.frontARB || '';
     form.sessionRearARB.value = session.rearARB || '';
-    form.sessionBrakeBias.value = session.brakeBias || '';
 
     // Populate comments
     form.sessionSetupComments.value = session.setupComments || '';
@@ -1536,7 +1536,6 @@ async function saveSessionSetup(event) {
         },
         frontARB: form.sessionFrontARB.value,
         rearARB: form.sessionRearARB.value,
-        brakeBias: form.sessionBrakeBias.value,
         setupComments: form.sessionSetupComments.value
     };
 
@@ -1562,8 +1561,17 @@ async function saveSessionSetup(event) {
 
 function loadFocusAreas(session) {
     const textarea = document.getElementById('focusAreas');
+    const bestLaptime = document.getElementById('bestLaptime');
+    const idealLaptime = document.getElementById('idealLaptime');
+
     if (textarea) {
         textarea.value = session.focusAreas || '';
+    }
+    if (bestLaptime) {
+        bestLaptime.value = session.bestLaptime || '';
+    }
+    if (idealLaptime) {
+        idealLaptime.value = session.idealLaptime || '';
     }
 }
 
@@ -1575,6 +1583,8 @@ async function saveFocusAreas() {
     }
 
     const textarea = document.getElementById('focusAreas');
+    const bestLaptime = document.getElementById('bestLaptime');
+    const idealLaptime = document.getElementById('idealLaptime');
     const statusEl = document.getElementById('focus-areas-status');
 
     if (statusEl) {
@@ -1584,7 +1594,9 @@ async function saveFocusAreas() {
 
     try {
         const updatedSession = await api.put(`/api/sessions/${session.id}`, {
-            focusAreas: textarea.value
+            focusAreas: textarea.value,
+            bestLaptime: bestLaptime ? bestLaptime.value : '',
+            idealLaptime: idealLaptime ? idealLaptime.value : ''
         });
         window.currentSession = updatedSession;
 

@@ -118,10 +118,6 @@
                                         <label for="sessionRearARB">Rear ARB</label>
                                         <input type="text" class="form-control" id="sessionRearARB" name="sessionRearARB" placeholder="e.g., 3">
                                     </div>
-                                    <div class="form-group">
-                                        <label for="sessionBrakeBias">Brake Bias</label>
-                                        <input type="text" class="form-control" id="sessionBrakeBias" name="sessionBrakeBias" placeholder="e.g., 58%">
-                                    </div>
                                 </div>
                             </div>
 
@@ -138,27 +134,38 @@
                     </div>
                 </div>
 
-                <!-- Corner Notes (shown after session is selected) -->
-                <div id="corner-notes-section" style="display: none;">
-                    <h2 class="section-title">Corner Notes</h2>
-                    <div id="corner-notes-container" class="corner-notes-container">
-                        <p class="corner-notes-empty">Select a session to view and edit corner notes</p>
-                    </div>
-                </div>
-
                 <!-- Focus Areas (shown after session is selected) -->
-                <div id="focus-areas-section" class="card" style="display: none; margin-top: 1.5rem;">
+                <div id="focus-areas-section" class="card" style="display: none; margin-bottom: 1.5rem;">
                     <div class="card-header">
                         <h2>Focus Areas</h2>
                     </div>
                     <div class="card-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="bestLaptime">Best Laptime</label>
+                                <input type="text" class="form-control" id="bestLaptime" name="bestLaptime" placeholder="e.g., 1:42.5">
+                            </div>
+                            <div class="form-group">
+                                <label for="idealLaptime">Ideal Laptime</label>
+                                <input type="text" class="form-control" id="idealLaptime" name="idealLaptime" placeholder="e.g., 1:41.2">
+                            </div>
+                        </div>
                         <div class="form-group">
+                            <label for="focusAreas">Focus Areas</label>
                             <textarea class="form-control" id="focusAreas" rows="5" placeholder="What to focus on for this session..."></textarea>
                         </div>
                         <div class="form-actions">
                             <button type="button" class="btn btn-primary" onclick="saveFocusAreas()">Save</button>
                             <span id="focus-areas-status" class="save-status"></span>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Corner Notes (shown after session is selected) -->
+                <div id="corner-notes-section" style="display: none;">
+                    <h2 class="section-title">Corner Notes</h2>
+                    <div id="corner-notes-container" class="corner-notes-container">
+                        <p class="corner-notes-empty">Select a session to view and edit corner notes</p>
                     </div>
                 </div>
             </div>

@@ -824,7 +824,9 @@ app.post('/api/sessions', requireAuth, (req, res) => {
         rearARB: req.body.rearARB || '',
         brakeBias: req.body.brakeBias || '',
         setupComments: req.body.setupComments || '',
-        focusAreas: req.body.focusAreas || ''
+        focusAreas: req.body.focusAreas || '',
+        bestLaptime: req.body.bestLaptime || '',
+        idealLaptime: req.body.idealLaptime || ''
     };
     sessions.push(newSession);
     writeJsonFile('sessions.json', sessions);
@@ -849,7 +851,9 @@ app.put('/api/sessions/:id', requireAuth, (req, res) => {
         rearARB: req.body.rearARB ?? sessions[index].rearARB,
         brakeBias: req.body.brakeBias ?? sessions[index].brakeBias,
         setupComments: req.body.setupComments ?? sessions[index].setupComments,
-        focusAreas: req.body.focusAreas ?? sessions[index].focusAreas
+        focusAreas: req.body.focusAreas ?? sessions[index].focusAreas,
+        bestLaptime: req.body.bestLaptime ?? sessions[index].bestLaptime,
+        idealLaptime: req.body.idealLaptime ?? sessions[index].idealLaptime
     };
     writeJsonFile('sessions.json', sessions);
     res.json(sessions[index]);
