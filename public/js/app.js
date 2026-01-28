@@ -1276,7 +1276,6 @@ async function onSessionNotesCarChange() {
     const cornerNotesSection = document.getElementById('corner-notes-section');
     const sessionSetupSection = document.getElementById('session-setup-section');
     const focusAreasSection = document.getElementById('focus-areas-section');
-    const sessionInfo = document.getElementById('session-info');
 
     if (!carId || !track) {
         if (sessionContainer) sessionContainer.style.display = 'none';
@@ -1292,7 +1291,6 @@ async function onSessionNotesCarChange() {
 
     // Show session selector and load sessions
     if (sessionContainer) sessionContainer.style.display = 'block';
-    if (sessionInfo) sessionInfo.style.display = 'none';
     if (cornerNotesSection) cornerNotesSection.style.display = 'none';
     if (sessionSetupSection) sessionSetupSection.style.display = 'none';
     if (focusAreasSection) focusAreasSection.style.display = 'none';

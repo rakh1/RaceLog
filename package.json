@@ -6,7 +6,9 @@
   "bin": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "pkg . --output dist/RaceLog.exe"
+    "build": "pkg . --output dist/RaceLog.exe",
+    "test": "jest --runInBand --forceExit",
+    "test:coverage": "jest --coverage --runInBand --forceExit"
   },
   "pkg": {
     "assets": [
@@ -26,6 +28,8 @@
     "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "pkg": "^5.8.1"
+    "jest": "^29.7.0",
+    "pkg": "^5.8.1",
+    "supertest": "^6.3.4"
   }
 }

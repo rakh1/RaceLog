@@ -2,7 +2,7 @@
 ; This script creates a Windows installer for RaceLog
 
 #define MyAppName "RaceLog"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.3.0"
 #define MyAppPublisher "RaceLog"
 #define MyAppURL "http://localhost:3000"
 #define MyAppExeName "RaceLog.exe"

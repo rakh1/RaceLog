@@ -17,7 +17,8 @@ const basePath = isPackaged ? path.dirname(process.execPath) : __dirname;
 const publicPath = isPackaged ? path.join(__dirname, 'public') : path.join(__dirname, 'public');
 
 // Data directory (always next to the executable or script, writable location)
-const DATA_DIR = path.join(basePath, 'data');
+// Support environment variable for testing
+const DATA_DIR = process.env.RACELOG_DATA_DIR || path.join(basePath, 'data');
 const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 const DEFAULT_DATA_DIR = isPackaged ? path.join(__dirname, 'default-data') : path.join(__dirname, 'default-data');
 
@@ -958,7 +959,12 @@ app.delete('/api/maintenance/:id', requireAuth, (req, res) => {
     res.status(204).send();
 });
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`RaceLog server running at http://localhost:${PORT}`);
-});
+// Start server only if not being imported for testing
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`RaceLog server running at http://localhost:${PORT}`);
+    });
+}
+
+// Export app for testing
+module.exports = app;
