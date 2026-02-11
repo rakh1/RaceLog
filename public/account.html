@@ -114,6 +114,17 @@
             </div>
         </div>
 
+        <!-- Delete Data -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>Delete Data</h2>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Warning: Deleting cars or tracks will permanently remove all associated data including setups, sessions, corner notes, track notes, and maintenance records.</p>
+                <button class="btn btn-danger" onclick="openDeleteDataModal()">Select Data to Delete</button>
+            </div>
+        </div>
+
         <!-- Delete Account -->
         <div class="card">
             <div class="card-header">
@@ -166,27 +177,77 @@
                         </div>
                     </div>
                 </div>
-                <div class="export-section mt-3">
-                    <h3>Related Data</h3>
-                    <div class="checkbox-grid">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="export-setups" checked> Include setups
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="export-sessions" checked> Include sessions &amp; corner notes
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="export-maintenance" checked> Include maintenance records
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="export-tracknotes" checked> Include track notes
-                        </label>
+                <div class="export-sections mt-3">
+                    <div class="export-section">
+                        <h3>Car Related Data</h3>
+                        <div class="checkbox-grid">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="export-setups" checked> Include setups
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="export-maintenance" checked> Include maintenance records
+                            </label>
+                        </div>
+                    </div>
+                    <div class="export-section">
+                        <h3>Track Related Data</h3>
+                        <div class="checkbox-grid">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="export-sessions" checked> Include sessions &amp; corner notes
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="export-tracknotes" checked> Include track notes
+                            </label>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('export-modal')">Cancel</button>
                 <button class="btn btn-primary" onclick="exportData(event)">Export</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Data Modal -->
+    <div class="modal" id="delete-data-modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>Delete Data</h2>
+                <button class="modal-close" onclick="closeModal('delete-data-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="export-sections">
+                    <div class="export-section">
+                        <div class="export-section-header">
+                            <h3>Cars</h3>
+                            <div>
+                                <button class="btn btn-secondary btn-sm" onclick="toggleExportAll('delete-car', true)">Select All</button>
+                                <button class="btn btn-secondary btn-sm" onclick="toggleExportAll('delete-car', false)">Deselect All</button>
+                            </div>
+                        </div>
+                        <div class="checkbox-grid" id="delete-cars-list">
+                            <p class="text-muted">Loading cars...</p>
+                        </div>
+                    </div>
+                    <div class="export-section">
+                        <div class="export-section-header">
+                            <h3>Tracks</h3>
+                            <div>
+                                <button class="btn btn-secondary btn-sm" onclick="toggleExportAll('delete-track', true)">Select All</button>
+                                <button class="btn btn-secondary btn-sm" onclick="toggleExportAll('delete-track', false)">Deselect All</button>
+                            </div>
+                        </div>
+                        <div class="checkbox-grid" id="delete-tracks-list">
+                            <p class="text-muted">Loading tracks...</p>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-muted mt-3">All associated setups, sessions, corner notes, track notes, and maintenance records will be permanently deleted.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('delete-data-modal')">Cancel</button>
+                <button class="btn btn-danger" onclick="bulkDeleteData(event)">Delete Selected</button>
             </div>
         </div>
     </div>

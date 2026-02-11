@@ -2134,6 +2134,83 @@ async function importData(event) {
     }
 }
 
+// ============ BULK DELETE ============
+
+async function openDeleteDataModal() {
+    openModal('delete-data-modal');
+
+    try {
+        const [cars, tracks] = await Promise.all([
+            api.get('/api/cars'),
+            api.get('/api/tracks')
+        ]);
+
+        const carsList = document.getElementById('delete-cars-list');
+        if (cars.length === 0) {
+            carsList.innerHTML = '<p class="text-muted">No cars found</p>';
+        } else {
+            carsList.innerHTML = cars.map(car => {
+                const label = car.series ? `${car.name} (${car.series})` : car.name;
+                return `<label class="checkbox-label">
+                    <input type="checkbox" class="delete-car" value="${car.id}">
+                    ${escapeHtml(label)}
+                </label>`;
+            }).join('');
+        }
+
+        const tracksList = document.getElementById('delete-tracks-list');
+        if (tracks.length === 0) {
+            tracksList.innerHTML = '<p class="text-muted">No tracks found</p>';
+        } else {
+            tracksList.innerHTML = tracks.map(track => `
+                <label class="checkbox-label">
+                    <input type="checkbox" class="delete-track" value="${track.id}">
+                    ${escapeHtml(track.name)}
+                </label>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading data for delete:', error);
+    }
+}
+
+async function bulkDeleteData(event) {
+    event.preventDefault();
+
+    const carIds = Array.from(document.querySelectorAll('.delete-car:checked')).map(cb => cb.value);
+    const trackIds = Array.from(document.querySelectorAll('.delete-track:checked')).map(cb => cb.value);
+
+    if (carIds.length === 0 && trackIds.length === 0) {
+        alert('Please select at least one car or track to delete.');
+        return;
+    }
+
+    const itemCount = carIds.length + trackIds.length;
+    if (!confirm(`Are you sure you want to delete ${itemCount} item(s) and ALL associated data? This cannot be undone.`)) {
+        return;
+    }
+
+    try {
+        const result = await api.post('/api/bulk-delete', { carIds, trackIds });
+
+        const parts = [];
+        if (result.carsDeleted) parts.push(`${result.carsDeleted} car(s)`);
+        if (result.tracksDeleted) parts.push(`${result.tracksDeleted} track(s)`);
+        if (result.setupsDeleted) parts.push(`${result.setupsDeleted} setup(s)`);
+        if (result.sessionsDeleted) parts.push(`${result.sessionsDeleted} session(s)`);
+        if (result.cornerNotesDeleted) parts.push(`${result.cornerNotesDeleted} corner note(s)`);
+        if (result.trackNotesDeleted) parts.push(`${result.trackNotesDeleted} track note(s)`);
+        if (result.maintenanceDeleted) parts.push(`${result.maintenanceDeleted} maintenance record(s)`);
+
+        const msg = parts.length > 0 ? 'Deleted: ' + parts.join(', ') : 'Nothing was deleted';
+        alert(msg);
+        closeModal('delete-data-modal');
+    } catch (error) {
+        console.error('Error deleting data:', error);
+        alert('Error deleting data: ' + error.message);
+    }
+}
+
 // Initialize based on current page
 document.addEventListener('DOMContentLoaded', async () => {
     const path = window.location.pathname;

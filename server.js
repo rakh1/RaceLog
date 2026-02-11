@@ -1365,6 +1365,127 @@ app.post('/api/import', requireAuth, (req, res) => {
     res.json(summary);
 });
 
+// ============ BULK DELETE API ============
+
+// POST bulk delete cars/tracks with cascade
+app.post('/api/bulk-delete', requireAuth, (req, res) => {
+    const userId = req.session.userId;
+    const { carIds = [], trackIds = [] } = req.body;
+
+    if (carIds.length === 0 && trackIds.length === 0) {
+        return res.status(400).json({ error: 'Select at least one car or track to delete' });
+    }
+
+    const summary = {
+        carsDeleted: 0,
+        tracksDeleted: 0,
+        setupsDeleted: 0,
+        sessionsDeleted: 0,
+        cornerNotesDeleted: 0,
+        trackNotesDeleted: 0,
+        maintenanceDeleted: 0
+    };
+
+    // --- Car cascade ---
+    if (carIds.length > 0) {
+        let cars = readJsonFile('cars.json');
+        const userCarIds = cars.filter(c => c.userId === userId && carIds.includes(c.id)).map(c => c.id);
+        const carIdSet = new Set(userCarIds);
+
+        // Delete setups for these cars
+        let setups = readJsonFile('setups.json');
+        const setupsBefore = setups.length;
+        setups = setups.filter(s => !(s.userId === userId && s.carId && carIdSet.has(s.carId)));
+        summary.setupsDeleted += setupsBefore - setups.length;
+        writeJsonFile('setups.json', setups);
+
+        // Delete sessions for these cars + their corner notes
+        let sessions = readJsonFile('sessions.json');
+        const sessionIdsToDelete = sessions
+            .filter(s => s.userId === userId && s.carId && carIdSet.has(s.carId))
+            .map(s => s.id);
+        const sessionIdSet = new Set(sessionIdsToDelete);
+
+        const sessionsBefore = sessions.length;
+        sessions = sessions.filter(s => !sessionIdSet.has(s.id));
+        summary.sessionsDeleted += sessionsBefore - sessions.length;
+        writeJsonFile('sessions.json', sessions);
+
+        let cornerNotes = readJsonFile('corner-notes.json');
+        const cnBefore = cornerNotes.length;
+        cornerNotes = cornerNotes.filter(cn => !(cn.userId === userId && sessionIdSet.has(cn.sessionId)));
+        summary.cornerNotesDeleted += cnBefore - cornerNotes.length;
+        writeJsonFile('corner-notes.json', cornerNotes);
+
+        // Delete track notes for these cars
+        let trackNotes = readJsonFile('track-notes.json');
+        const tnBefore = trackNotes.length;
+        trackNotes = trackNotes.filter(tn => !(tn.userId === userId && tn.carId && carIdSet.has(tn.carId)));
+        summary.trackNotesDeleted += tnBefore - trackNotes.length;
+        writeJsonFile('track-notes.json', trackNotes);
+
+        // Delete maintenance for these cars
+        let maintenance = readJsonFile('maintenance.json');
+        const mBefore = maintenance.length;
+        maintenance = maintenance.filter(m => !(m.userId === userId && m.carId && carIdSet.has(m.carId)));
+        summary.maintenanceDeleted += mBefore - maintenance.length;
+        writeJsonFile('maintenance.json', maintenance);
+
+        // Delete the cars
+        const carsBefore = cars.length;
+        cars = cars.filter(c => !(c.userId === userId && carIdSet.has(c.id)));
+        summary.carsDeleted += carsBefore - cars.length;
+        writeJsonFile('cars.json', cars);
+    }
+
+    // --- Track cascade ---
+    if (trackIds.length > 0) {
+        let tracks = readJsonFile('tracks.json');
+        const userTrackIds = tracks.filter(t => t.userId === userId && trackIds.includes(t.id)).map(t => t.id);
+        const trackIdSet = new Set(userTrackIds);
+
+        // Delete setups for these tracks
+        let setups = readJsonFile('setups.json');
+        const setupsBefore = setups.length;
+        setups = setups.filter(s => !(s.userId === userId && s.trackId && trackIdSet.has(s.trackId)));
+        summary.setupsDeleted += setupsBefore - setups.length;
+        writeJsonFile('setups.json', setups);
+
+        // Delete sessions for these tracks + their corner notes
+        let sessions = readJsonFile('sessions.json');
+        const sessionIdsToDelete = sessions
+            .filter(s => s.userId === userId && s.trackId && trackIdSet.has(s.trackId))
+            .map(s => s.id);
+        const sessionIdSet = new Set(sessionIdsToDelete);
+
+        const sessionsBefore = sessions.length;
+        sessions = sessions.filter(s => !sessionIdSet.has(s.id));
+        summary.sessionsDeleted += sessionsBefore - sessions.length;
+        writeJsonFile('sessions.json', sessions);
+
+        let cornerNotes = readJsonFile('corner-notes.json');
+        const cnBefore = cornerNotes.length;
+        cornerNotes = cornerNotes.filter(cn => !(cn.userId === userId && sessionIdSet.has(cn.sessionId)));
+        summary.cornerNotesDeleted += cnBefore - cornerNotes.length;
+        writeJsonFile('corner-notes.json', cornerNotes);
+
+        // Delete track notes for these tracks
+        let trackNotes = readJsonFile('track-notes.json');
+        const tnBefore = trackNotes.length;
+        trackNotes = trackNotes.filter(tn => !(tn.userId === userId && tn.trackId && trackIdSet.has(tn.trackId)));
+        summary.trackNotesDeleted += tnBefore - trackNotes.length;
+        writeJsonFile('track-notes.json', trackNotes);
+
+        // Delete the tracks
+        const tracksBefore = tracks.length;
+        tracks = tracks.filter(t => !(t.userId === userId && trackIdSet.has(t.id)));
+        summary.tracksDeleted += tracksBefore - tracks.length;
+        writeJsonFile('tracks.json', tracks);
+    }
+
+    res.json(summary);
+});
+
 // Start server only if not being imported for testing
 if (require.main === module) {
     app.listen(PORT, () => {
