@@ -72,6 +72,48 @@
             </div>
         </div>
 
+        <!-- Export Data -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>Export Data</h2>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Export your cars, tracks, and related data as a JSON file to transfer to another RaceLog instance.</p>
+                <button class="btn btn-primary" onclick="openExportModal()">Select Data to Export</button>
+            </div>
+        </div>
+
+        <!-- Import Data -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2>Import Data</h2>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Import data from a previously exported RaceLog JSON file.</p>
+                <div class="form-group">
+                    <label for="importFile">Select export file</label>
+                    <input type="file" class="form-control" id="importFile" accept=".json" onchange="onImportFileChange()">
+                </div>
+                <div class="form-group">
+                    <label>Import mode</label>
+                    <div class="import-mode-options">
+                        <label class="checkbox-label">
+                            <input type="radio" name="importMode" value="preserve" checked>
+                            Preserve existing data (skip duplicates)
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="radio" name="importMode" value="overwrite">
+                            Overwrite existing data (replace duplicates)
+                        </label>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" id="importBtn" onclick="importData(event)" disabled>Import</button>
+                    <span id="import-status" class="save-status"></span>
+                </div>
+            </div>
+        </div>
+
         <!-- Delete Account -->
         <div class="card">
             <div class="card-header">
@@ -86,6 +128,65 @@
                     </div>
                     <button type="submit" class="btn btn-danger">Delete My Account</button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal" id="export-modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>Export Data</h2>
+                <button class="modal-close" onclick="closeModal('export-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="export-sections">
+                    <div class="export-section">
+                        <div class="export-section-header">
+                            <h3>Cars</h3>
+                            <div>
+                                <button class="btn btn-secondary btn-sm" onclick="toggleExportAll('export-car', true)">Select All</button>
+                                <button class="btn btn-secondary btn-sm" onclick="toggleExportAll('export-car', false)">Deselect All</button>
+                            </div>
+                        </div>
+                        <div class="checkbox-grid" id="export-cars-list">
+                            <p class="text-muted">Loading cars...</p>
+                        </div>
+                    </div>
+                    <div class="export-section">
+                        <div class="export-section-header">
+                            <h3>Tracks</h3>
+                            <div>
+                                <button class="btn btn-secondary btn-sm" onclick="toggleExportAll('export-track', true)">Select All</button>
+                                <button class="btn btn-secondary btn-sm" onclick="toggleExportAll('export-track', false)">Deselect All</button>
+                            </div>
+                        </div>
+                        <div class="checkbox-grid" id="export-tracks-list">
+                            <p class="text-muted">Loading tracks...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="export-section mt-3">
+                    <h3>Related Data</h3>
+                    <div class="checkbox-grid">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="export-setups" checked> Include setups
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="export-sessions" checked> Include sessions &amp; corner notes
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="export-maintenance" checked> Include maintenance records
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="export-tracknotes" checked> Include track notes
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('export-modal')">Cancel</button>
+                <button class="btn btn-primary" onclick="exportData(event)">Export</button>
             </div>
         </div>
     </div>

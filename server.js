@@ -103,7 +103,7 @@ async function downloadTrackImage(imageUrl, trackId) {
 }
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 // Session middleware
 app.use(session({
@@ -957,6 +957,412 @@ app.delete('/api/maintenance/:id', requireAuth, (req, res) => {
     maintenance.splice(index, 1);
     writeJsonFile('maintenance.json', maintenance);
     res.status(204).send();
+});
+
+// ============ EXPORT / IMPORT API ============
+
+// POST export data
+app.post('/api/export', requireAuth, (req, res) => {
+    const userId = req.session.userId;
+    const { carIds = [], trackIds = [], includeSetups, includeSessions, includeMaintenance, includeTrackNotes } = req.body;
+
+    if (carIds.length === 0 && trackIds.length === 0) {
+        return res.status(400).json({ error: 'Select at least one car or track to export' });
+    }
+
+    const allCars = readJsonFile('cars.json').filter(c => c.userId === userId);
+    const allTracks = readJsonFile('tracks.json').filter(t => t.userId === userId);
+
+    const cars = allCars.filter(c => carIds.includes(c.id));
+    const tracks = allTracks.filter(t => trackIds.includes(t.id));
+
+    const exportData = { cars, tracks };
+
+    if (includeSetups) {
+        const allSetups = readJsonFile('setups.json').filter(s => s.userId === userId);
+        exportData.setups = allSetups.filter(s =>
+            (s.carId && carIds.includes(s.carId)) || (s.trackId && trackIds.includes(s.trackId))
+        );
+    }
+
+    if (includeSessions) {
+        const allSessions = readJsonFile('sessions.json').filter(s => s.userId === userId);
+        exportData.sessions = allSessions.filter(s =>
+            (s.carId && carIds.includes(s.carId)) || (s.trackId && trackIds.includes(s.trackId))
+        );
+
+        // Include corner notes for exported sessions
+        const sessionIds = exportData.sessions.map(s => s.id);
+        const allCornerNotes = readJsonFile('corner-notes.json').filter(cn => cn.userId === userId);
+        exportData.cornerNotes = allCornerNotes.filter(cn => sessionIds.includes(cn.sessionId));
+    }
+
+    if (includeTrackNotes) {
+        const allTrackNotes = readJsonFile('track-notes.json').filter(tn => tn.userId === userId);
+        exportData.trackNotes = allTrackNotes.filter(tn =>
+            (tn.carId && carIds.includes(tn.carId)) || (tn.trackId && trackIds.includes(tn.trackId))
+        );
+    }
+
+    if (includeMaintenance) {
+        const allMaintenance = readJsonFile('maintenance.json').filter(m => m.userId === userId);
+        exportData.maintenance = allMaintenance.filter(m => m.carId && carIds.includes(m.carId));
+    }
+
+    // Include track images as base64
+    const trackImages = [];
+    for (const track of tracks) {
+        if (track.imageUrl && track.imageUrl.startsWith('/images/tracks/')) {
+            const filename = path.basename(track.imageUrl);
+            const imagePath = path.join(TRACK_IMAGES_DIR, filename);
+            if (fs.existsSync(imagePath)) {
+                try {
+                    const imageData = fs.readFileSync(imagePath).toString('base64');
+                    trackImages.push({ filename, data: imageData });
+                } catch (err) {
+                    console.error('Failed to read track image:', err.message);
+                }
+            }
+        }
+    }
+    exportData.trackImages = trackImages;
+
+    const exportEnvelope = {
+        version: 1,
+        exportDate: new Date().toISOString(),
+        appName: 'RaceLog',
+        data: exportData
+    };
+
+    res.json(exportEnvelope);
+});
+
+// POST import data
+app.post('/api/import', requireAuth, (req, res) => {
+    const userId = req.session.userId;
+    const { data: importEnvelope, mode } = req.body;
+
+    if (!importEnvelope || !importEnvelope.version || !importEnvelope.data) {
+        return res.status(400).json({ error: 'Invalid export file format' });
+    }
+
+    if (!['overwrite', 'preserve'].includes(mode)) {
+        return res.status(400).json({ error: 'Import mode must be "overwrite" or "preserve"' });
+    }
+
+    const importData = importEnvelope.data;
+    const summary = {
+        carsImported: 0, carsSkipped: 0,
+        tracksImported: 0, tracksSkipped: 0,
+        setupsImported: 0, setupsSkipped: 0,
+        sessionsImported: 0, sessionsSkipped: 0,
+        cornerNotesImported: 0,
+        trackNotesImported: 0, trackNotesSkipped: 0,
+        maintenanceImported: 0, maintenanceSkipped: 0
+    };
+
+    // ID remapping: old ID -> new ID
+    const carIdMap = {};
+    const trackIdMap = {};
+    const sessionIdMap = {};
+    // Track which original IDs were skipped in preserve mode
+    const skippedCarIds = new Set();
+    const skippedTrackIds = new Set();
+
+    // --- Import Cars ---
+    if (importData.cars && importData.cars.length > 0) {
+        const existingCars = readJsonFile('cars.json');
+        const userCars = existingCars.filter(c => c.userId === userId);
+
+        for (const importCar of importData.cars) {
+            const match = userCars.find(c =>
+                c.name === importCar.name &&
+                c.manufacturer === importCar.manufacturer &&
+                c.series === importCar.series
+            );
+
+            if (match) {
+                if (mode === 'overwrite') {
+                    carIdMap[importCar.id] = match.id;
+                    const idx = existingCars.findIndex(c => c.id === match.id);
+                    existingCars[idx] = { ...existingCars[idx], name: importCar.name, manufacturer: importCar.manufacturer, series: importCar.series };
+                    summary.carsImported++;
+                } else {
+                    carIdMap[importCar.id] = match.id;
+                    skippedCarIds.add(importCar.id);
+                    summary.carsSkipped++;
+                }
+            } else {
+                const newId = uuidv4();
+                carIdMap[importCar.id] = newId;
+                existingCars.push({ id: newId, userId, name: importCar.name || '', manufacturer: importCar.manufacturer || '', series: importCar.series || '' });
+                summary.carsImported++;
+            }
+        }
+        writeJsonFile('cars.json', existingCars);
+    }
+
+    // --- Import Tracks ---
+    if (importData.tracks && importData.tracks.length > 0) {
+        const existingTracks = readJsonFile('tracks.json');
+        const userTracks = existingTracks.filter(t => t.userId === userId);
+
+        for (const importTrack of importData.tracks) {
+            const match = userTracks.find(t =>
+                t.name === importTrack.name &&
+                t.location === importTrack.location
+            );
+
+            if (match) {
+                if (mode === 'overwrite') {
+                    trackIdMap[importTrack.id] = match.id;
+                    const idx = existingTracks.findIndex(t => t.id === match.id);
+                    existingTracks[idx] = {
+                        ...existingTracks[idx],
+                        name: importTrack.name,
+                        location: importTrack.location,
+                        length: importTrack.length,
+                        corners: importTrack.corners,
+                        circuitNotes: importTrack.circuitNotes,
+                        imageUrl: importTrack.imageUrl
+                    };
+                    summary.tracksImported++;
+                } else {
+                    trackIdMap[importTrack.id] = match.id;
+                    skippedTrackIds.add(importTrack.id);
+                    summary.tracksSkipped++;
+                }
+            } else {
+                const newId = uuidv4();
+                trackIdMap[importTrack.id] = newId;
+                // Update imageUrl to use new track ID if it was a local image
+                let imageUrl = importTrack.imageUrl || '';
+                if (imageUrl.startsWith('/images/tracks/')) {
+                    const ext = path.extname(imageUrl);
+                    imageUrl = `/images/tracks/${newId}${ext}`;
+                }
+                existingTracks.push({
+                    id: newId, userId,
+                    name: importTrack.name || '',
+                    location: importTrack.location || '',
+                    length: importTrack.length || '',
+                    imageUrl: imageUrl,
+                    corners: importTrack.corners || [],
+                    circuitNotes: importTrack.circuitNotes || ''
+                });
+                summary.tracksImported++;
+            }
+        }
+        writeJsonFile('tracks.json', existingTracks);
+    }
+
+    // --- Save track images ---
+    if (importData.trackImages && importData.trackImages.length > 0) {
+        for (const img of importData.trackImages) {
+            // Find which imported track this image belongs to
+            const originalTrackId = img.filename.replace(/\.[^.]+$/, '');
+            const newTrackId = trackIdMap[originalTrackId];
+            if (newTrackId) {
+                const ext = path.extname(img.filename);
+                const newFilename = `${newTrackId}${ext}`;
+                const destPath = path.join(TRACK_IMAGES_DIR, newFilename);
+                try {
+                    fs.writeFileSync(destPath, Buffer.from(img.data, 'base64'));
+                } catch (err) {
+                    console.error('Failed to save track image:', err.message);
+                }
+            }
+        }
+    }
+
+    // --- Import Setups ---
+    if (importData.setups && importData.setups.length > 0) {
+        const existingSetups = readJsonFile('setups.json');
+
+        if (mode === 'overwrite') {
+            // Remove existing setups for the imported cars/tracks owned by this user
+            const newCarIds = new Set(Object.values(carIdMap));
+            const newTrackIds = new Set(Object.values(trackIdMap));
+            const toRemove = existingSetups.filter(s =>
+                s.userId === userId &&
+                ((s.carId && newCarIds.has(s.carId)) || (s.trackId && newTrackIds.has(s.trackId)))
+            ).map(s => s.id);
+            const filtered = existingSetups.filter(s => !toRemove.includes(s.id));
+
+            for (const setup of importData.setups) {
+                const newSetup = { ...setup, id: uuidv4(), userId };
+                if (newSetup.carId) newSetup.carId = carIdMap[newSetup.carId] || newSetup.carId;
+                if (newSetup.trackId) newSetup.trackId = trackIdMap[newSetup.trackId] || newSetup.trackId;
+                filtered.push(newSetup);
+                summary.setupsImported++;
+            }
+            writeJsonFile('setups.json', filtered);
+        } else {
+            // Preserve: only add setups for non-skipped cars/tracks
+            for (const setup of importData.setups) {
+                const carSkipped = setup.carId && skippedCarIds.has(setup.carId);
+                const trackSkipped = setup.trackId && skippedTrackIds.has(setup.trackId);
+                if (carSkipped || trackSkipped) {
+                    summary.setupsSkipped++;
+                    continue;
+                }
+                const newSetup = { ...setup, id: uuidv4(), userId };
+                if (newSetup.carId) newSetup.carId = carIdMap[newSetup.carId] || newSetup.carId;
+                if (newSetup.trackId) newSetup.trackId = trackIdMap[newSetup.trackId] || newSetup.trackId;
+                existingSetups.push(newSetup);
+                summary.setupsImported++;
+            }
+            writeJsonFile('setups.json', existingSetups);
+        }
+    }
+
+    // --- Import Sessions + Corner Notes ---
+    if (importData.sessions && importData.sessions.length > 0) {
+        const existingSessions = readJsonFile('sessions.json');
+
+        if (mode === 'overwrite') {
+            const newCarIds = new Set(Object.values(carIdMap));
+            const newTrackIds = new Set(Object.values(trackIdMap));
+            const toRemove = existingSessions.filter(s =>
+                s.userId === userId &&
+                ((s.carId && newCarIds.has(s.carId)) || (s.trackId && newTrackIds.has(s.trackId)))
+            ).map(s => s.id);
+            const filtered = existingSessions.filter(s => !toRemove.includes(s.id));
+
+            // Also remove corner notes for removed sessions
+            let existingCornerNotes = readJsonFile('corner-notes.json');
+            existingCornerNotes = existingCornerNotes.filter(cn => !toRemove.includes(cn.sessionId) || cn.userId !== userId);
+
+            for (const session of importData.sessions) {
+                const newId = uuidv4();
+                sessionIdMap[session.id] = newId;
+                const newSession = { ...session, id: newId, userId };
+                if (newSession.carId) newSession.carId = carIdMap[newSession.carId] || newSession.carId;
+                if (newSession.trackId) newSession.trackId = trackIdMap[newSession.trackId] || newSession.trackId;
+                filtered.push(newSession);
+                summary.sessionsImported++;
+            }
+            writeJsonFile('sessions.json', filtered);
+
+            // Import corner notes
+            if (importData.cornerNotes && importData.cornerNotes.length > 0) {
+                for (const cn of importData.cornerNotes) {
+                    const newCn = { ...cn, id: uuidv4(), userId };
+                    if (newCn.sessionId) newCn.sessionId = sessionIdMap[newCn.sessionId] || newCn.sessionId;
+                    existingCornerNotes.push(newCn);
+                    summary.cornerNotesImported++;
+                }
+            }
+            writeJsonFile('corner-notes.json', existingCornerNotes);
+        } else {
+            // Preserve: only add sessions for non-skipped cars/tracks
+            const existingCornerNotes = readJsonFile('corner-notes.json');
+
+            for (const session of importData.sessions) {
+                const carSkipped = session.carId && skippedCarIds.has(session.carId);
+                const trackSkipped = session.trackId && skippedTrackIds.has(session.trackId);
+                if (carSkipped || trackSkipped) {
+                    summary.sessionsSkipped++;
+                    continue;
+                }
+                const newId = uuidv4();
+                sessionIdMap[session.id] = newId;
+                const newSession = { ...session, id: newId, userId };
+                if (newSession.carId) newSession.carId = carIdMap[newSession.carId] || newSession.carId;
+                if (newSession.trackId) newSession.trackId = trackIdMap[newSession.trackId] || newSession.trackId;
+                existingSessions.push(newSession);
+                summary.sessionsImported++;
+            }
+            writeJsonFile('sessions.json', existingSessions);
+
+            // Import corner notes for imported sessions only
+            if (importData.cornerNotes && importData.cornerNotes.length > 0) {
+                for (const cn of importData.cornerNotes) {
+                    if (!sessionIdMap[cn.sessionId]) continue; // Session was skipped
+                    const newCn = { ...cn, id: uuidv4(), userId };
+                    newCn.sessionId = sessionIdMap[newCn.sessionId] || newCn.sessionId;
+                    existingCornerNotes.push(newCn);
+                    summary.cornerNotesImported++;
+                }
+            }
+            writeJsonFile('corner-notes.json', existingCornerNotes);
+        }
+    }
+
+    // --- Import Track Notes ---
+    if (importData.trackNotes && importData.trackNotes.length > 0) {
+        const existingTrackNotes = readJsonFile('track-notes.json');
+
+        if (mode === 'overwrite') {
+            const newCarIds = new Set(Object.values(carIdMap));
+            const newTrackIds = new Set(Object.values(trackIdMap));
+            const toRemove = existingTrackNotes.filter(tn =>
+                tn.userId === userId &&
+                ((tn.carId && newCarIds.has(tn.carId)) || (tn.trackId && newTrackIds.has(tn.trackId)))
+            ).map(tn => tn.id);
+            const filtered = existingTrackNotes.filter(tn => !toRemove.includes(tn.id));
+
+            for (const tn of importData.trackNotes) {
+                const newTn = { ...tn, id: uuidv4(), userId };
+                if (newTn.carId) newTn.carId = carIdMap[newTn.carId] || newTn.carId;
+                if (newTn.trackId) newTn.trackId = trackIdMap[newTn.trackId] || newTn.trackId;
+                filtered.push(newTn);
+                summary.trackNotesImported++;
+            }
+            writeJsonFile('track-notes.json', filtered);
+        } else {
+            for (const tn of importData.trackNotes) {
+                const carSkipped = tn.carId && skippedCarIds.has(tn.carId);
+                const trackSkipped = tn.trackId && skippedTrackIds.has(tn.trackId);
+                if (carSkipped || trackSkipped) {
+                    summary.trackNotesSkipped++;
+                    continue;
+                }
+                const newTn = { ...tn, id: uuidv4(), userId };
+                if (newTn.carId) newTn.carId = carIdMap[newTn.carId] || newTn.carId;
+                if (newTn.trackId) newTn.trackId = trackIdMap[newTn.trackId] || newTn.trackId;
+                existingTrackNotes.push(newTn);
+                summary.trackNotesImported++;
+            }
+            writeJsonFile('track-notes.json', existingTrackNotes);
+        }
+    }
+
+    // --- Import Maintenance ---
+    if (importData.maintenance && importData.maintenance.length > 0) {
+        const existingMaintenance = readJsonFile('maintenance.json');
+
+        if (mode === 'overwrite') {
+            const newCarIds = new Set(Object.values(carIdMap));
+            const toRemove = existingMaintenance.filter(m =>
+                m.userId === userId && m.carId && newCarIds.has(m.carId)
+            ).map(m => m.id);
+            const filtered = existingMaintenance.filter(m => !toRemove.includes(m.id));
+
+            for (const m of importData.maintenance) {
+                const newM = { ...m, id: uuidv4(), userId };
+                if (newM.carId) newM.carId = carIdMap[newM.carId] || newM.carId;
+                filtered.push(newM);
+                summary.maintenanceImported++;
+            }
+            writeJsonFile('maintenance.json', filtered);
+        } else {
+            for (const m of importData.maintenance) {
+                const carSkipped = m.carId && skippedCarIds.has(m.carId);
+                if (carSkipped) {
+                    summary.maintenanceSkipped++;
+                    continue;
+                }
+                const newM = { ...m, id: uuidv4(), userId };
+                if (newM.carId) newM.carId = carIdMap[newM.carId] || newM.carId;
+                existingMaintenance.push(newM);
+                summary.maintenanceImported++;
+            }
+            writeJsonFile('maintenance.json', existingMaintenance);
+        }
+    }
+
+    res.json(summary);
 });
 
 // Start server only if not being imported for testing

@@ -1949,6 +1949,191 @@ async function deleteAccount(event) {
     }
 }
 
+// ============ EXPORT / IMPORT ============
+
+async function openExportModal() {
+    openModal('export-modal');
+
+    try {
+        const [cars, tracks] = await Promise.all([
+            api.get('/api/cars'),
+            api.get('/api/tracks')
+        ]);
+
+        const carsList = document.getElementById('export-cars-list');
+        if (cars.length === 0) {
+            carsList.innerHTML = '<p class="text-muted">No cars found</p>';
+        } else {
+            carsList.innerHTML = cars.map(car => {
+                const label = car.series ? `${car.name} (${car.series})` : car.name;
+                return `<label class="checkbox-label">
+                    <input type="checkbox" class="export-car" value="${car.id}" checked>
+                    ${escapeHtml(label)}
+                </label>`;
+            }).join('');
+        }
+
+        const tracksList = document.getElementById('export-tracks-list');
+        if (tracks.length === 0) {
+            tracksList.innerHTML = '<p class="text-muted">No tracks found</p>';
+        } else {
+            tracksList.innerHTML = tracks.map(track => `
+                <label class="checkbox-label">
+                    <input type="checkbox" class="export-track" value="${track.id}" checked>
+                    ${escapeHtml(track.name)}
+                </label>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading data for export:', error);
+    }
+}
+
+function toggleExportAll(className, checked) {
+    document.querySelectorAll('.' + className).forEach(cb => cb.checked = checked);
+}
+
+async function exportData(event) {
+    event.preventDefault();
+
+    const carIds = Array.from(document.querySelectorAll('.export-car:checked')).map(cb => cb.value);
+    const trackIds = Array.from(document.querySelectorAll('.export-track:checked')).map(cb => cb.value);
+
+    if (carIds.length === 0 && trackIds.length === 0) {
+        alert('Please select at least one car or track to export.');
+        return;
+    }
+
+    const payload = {
+        carIds,
+        trackIds,
+        includeSetups: document.getElementById('export-setups').checked,
+        includeSessions: document.getElementById('export-sessions').checked,
+        includeMaintenance: document.getElementById('export-maintenance').checked,
+        includeTrackNotes: document.getElementById('export-tracknotes').checked
+    };
+
+    try {
+        const result = await api.post('/api/export', payload);
+
+        // Trigger file download
+        const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const date = new Date().toISOString().split('T')[0];
+        a.href = url;
+        a.download = `racelog-export-${date}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        closeModal('export-modal');
+    } catch (error) {
+        console.error('Error exporting data:', error);
+        alert('Error exporting data: ' + error.message);
+    }
+}
+
+function onImportFileChange() {
+    const fileInput = document.getElementById('importFile');
+    const importBtn = document.getElementById('importBtn');
+    const statusEl = document.getElementById('import-status');
+    importBtn.disabled = !fileInput.files.length;
+    if (statusEl) statusEl.textContent = '';
+}
+
+async function importData(event) {
+    event.preventDefault();
+
+    const fileInput = document.getElementById('importFile');
+    const statusEl = document.getElementById('import-status');
+    const importBtn = document.getElementById('importBtn');
+
+    if (!fileInput.files.length) {
+        alert('Please select a file to import.');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const mode = document.querySelector('input[name="importMode"]:checked').value;
+
+    if (statusEl) {
+        statusEl.textContent = 'Reading file...';
+        statusEl.className = 'save-status';
+    }
+    importBtn.disabled = true;
+
+    try {
+        const text = await file.text();
+        let parsed;
+        try {
+            parsed = JSON.parse(text);
+        } catch (e) {
+            throw new Error('Invalid JSON file');
+        }
+
+        if (!parsed.version || !parsed.data) {
+            throw new Error('This file does not appear to be a valid RaceLog export');
+        }
+
+        if (statusEl) statusEl.textContent = 'Importing...';
+
+        const response = await fetch('/api/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: parsed, mode })
+        });
+
+        if (response.status === 401) {
+            handleUnauthorized();
+            throw new Error('Unauthorized');
+        }
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Import failed');
+        }
+
+        // Build summary message
+        const parts = [];
+        if (result.carsImported) parts.push(`${result.carsImported} car(s)`);
+        if (result.tracksImported) parts.push(`${result.tracksImported} track(s)`);
+        if (result.setupsImported) parts.push(`${result.setupsImported} setup(s)`);
+        if (result.sessionsImported) parts.push(`${result.sessionsImported} session(s)`);
+        if (result.cornerNotesImported) parts.push(`${result.cornerNotesImported} corner note(s)`);
+        if (result.trackNotesImported) parts.push(`${result.trackNotesImported} track note(s)`);
+        if (result.maintenanceImported) parts.push(`${result.maintenanceImported} maintenance record(s)`);
+
+        const skipped = [];
+        if (result.carsSkipped) skipped.push(`${result.carsSkipped} car(s)`);
+        if (result.tracksSkipped) skipped.push(`${result.tracksSkipped} track(s)`);
+        if (result.setupsSkipped) skipped.push(`${result.setupsSkipped} setup(s)`);
+        if (result.sessionsSkipped) skipped.push(`${result.sessionsSkipped} session(s)`);
+        if (result.maintenanceSkipped) skipped.push(`${result.maintenanceSkipped} maintenance record(s)`);
+
+        let msg = parts.length > 0 ? 'Imported: ' + parts.join(', ') : 'Nothing new to import';
+        if (skipped.length > 0) msg += '. Skipped: ' + skipped.join(', ');
+
+        if (statusEl) {
+            statusEl.textContent = msg;
+            statusEl.className = 'save-status saved';
+        }
+
+        // Reset file input
+        fileInput.value = '';
+        importBtn.disabled = true;
+    } catch (error) {
+        console.error('Error importing data:', error);
+        if (statusEl) {
+            statusEl.textContent = error.message;
+            statusEl.className = 'save-status';
+        }
+        importBtn.disabled = false;
+    }
+}
+
 // Initialize based on current page
 document.addEventListener('DOMContentLoaded', async () => {
     const path = window.location.pathname;
