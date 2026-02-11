@@ -30,13 +30,27 @@ if (!fs.existsSync(SESSIONS_DIR)) {
     fs.mkdirSync(SESSIONS_DIR);
 }
 
-// Track images directory
-const TRACK_IMAGES_DIR = path.join(publicPath, 'images', 'tracks');
-if (!fs.existsSync(path.join(publicPath, 'images'))) {
-    fs.mkdirSync(path.join(publicPath, 'images'));
-}
+// Track images directory (in DATA_DIR so it's writable even when packaged)
+const TRACK_IMAGES_DIR = path.join(DATA_DIR, 'track-images');
 if (!fs.existsSync(TRACK_IMAGES_DIR)) {
     fs.mkdirSync(TRACK_IMAGES_DIR);
+}
+
+// Migrate track images from old public/images/tracks/ to data/track-images/
+const oldTrackImagesDir = path.join(publicPath, 'images', 'tracks');
+if (fs.existsSync(oldTrackImagesDir)) {
+    try {
+        const oldFiles = fs.readdirSync(oldTrackImagesDir);
+        for (const file of oldFiles) {
+            const oldPath = path.join(oldTrackImagesDir, file);
+            const newPath = path.join(TRACK_IMAGES_DIR, file);
+            if (!fs.existsSync(newPath) && fs.statSync(oldPath).isFile()) {
+                fs.copyFileSync(oldPath, newPath);
+            }
+        }
+    } catch (err) {
+        // Ignore migration errors (e.g. read-only snapshot in packaged app)
+    }
 }
 
 // Download image from URL and save locally
@@ -121,6 +135,8 @@ app.use(session({
     }
 }));
 
+// Serve track images from writable data directory
+app.use('/images/tracks', express.static(TRACK_IMAGES_DIR));
 app.use(express.static(publicPath));
 
 // Helper functions for JSON file operations
